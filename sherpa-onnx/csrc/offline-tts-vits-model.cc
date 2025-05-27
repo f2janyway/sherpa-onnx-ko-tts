@@ -121,7 +121,7 @@ class OfflineTtsVitsModel::Impl {
     sess_ = std::make_unique<Ort::Session>(env_, model_data, model_data_length,
                                            sess_opts_);
 
-    SHERPA_ONNX_LOGE(">>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc start")
+    SHERPA_ONNX_LOGE(">>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc start");
     GetInputNames(sess_.get(), &input_names_, &input_names_ptr_);
 
     GetOutputNames(sess_.get(), &output_names_, &output_names_ptr_);
