@@ -27,6 +27,7 @@
 namespace sherpa_onnx {
 
 static std::unordered_map<char32_t, int32_t> ReadTokens(std::istream &is) {
+  SHERPA_ONNX_LOGE(">>> ReadTokens csrc/offline-tts-character-frontend.cc start")
   std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> conv;
   std::unordered_map<char32_t, int32_t> token2id;
 
@@ -76,14 +77,17 @@ static std::unordered_map<char32_t, int32_t> ReadTokens(std::istream &is) {
     token2id.insert({c, id});
   }
 
+  SHERPA_ONNX_LOGE(">>> ReadTokens csrc/offline-tts-character-frontend.cc end")
   return token2id;
 }
 
 OfflineTtsCharacterFrontend::OfflineTtsCharacterFrontend(
     const std::string &tokens, const OfflineTtsVitsModelMetaData &meta_data)
     : meta_data_(meta_data) {
+  SHERPA_ONNX_LOGE(">>> OfflineTtsCharacterFrontend::OfflineTtsCharacterFrontend(tokens) csrc/offline-tts-character-frontend.cc start")
   std::ifstream is(tokens);
   token2id_ = ReadTokens(is);
+  SHERPA_ONNX_LOGE(">>> OfflineTtsCharacterFrontend::OfflineTtsCharacterFrontend(tokens) csrc/offline-tts-character-frontend.cc end")
 }
 
 template <typename Manager>
@@ -91,13 +95,16 @@ OfflineTtsCharacterFrontend::OfflineTtsCharacterFrontend(
     Manager *mgr, const std::string &tokens,
     const OfflineTtsVitsModelMetaData &meta_data)
     : meta_data_(meta_data) {
+  SHERPA_ONNX_LOGE(">>> OfflineTtsCharacterFrontend::OfflineTtsCharacterFrontend(mgr,tokens) csrc/offline-tts-character-frontend.cc start")
   auto buf = ReadFile(mgr, tokens);
   std::istrstream is(buf.data(), buf.size());
   token2id_ = ReadTokens(is);
+  SHERPA_ONNX_LOGE(">>> OfflineTtsCharacterFrontend::OfflineTtsCharacterFrontend(mgr,tokens) csrc/offline-tts-character-frontend.cc end")
 }
 
 std::vector<TokenIDs> OfflineTtsCharacterFrontend::ConvertTextToTokenIds(
     const std::string &_text, const std::string & /*voice = ""*/) const {
+  SHERPA_ONNX_LOGE(">>> OfflineTtsCharacterFrontend::ConvertTextToTokenIds csrc/offline-tts-character-frontend.cc start")
   // see
   // https://github.com/coqui-ai/TTS/blob/dev/TTS/tts/utils/text/tokenizer.py#L87
   int32_t use_eos_bos = meta_data_.use_eos_bos;
@@ -188,6 +195,7 @@ std::vector<TokenIDs> OfflineTtsCharacterFrontend::ConvertTextToTokenIds(
     }
   }
 
+  SHERPA_ONNX_LOGE(">>> OfflineTtsCharacterFrontend::ConvertTextToTokenIds csrc/offline-tts-character-frontend.cc end")
   return ans;
 }
 

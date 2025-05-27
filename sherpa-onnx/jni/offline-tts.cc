@@ -13,6 +13,7 @@ namespace sherpa_onnx {
 static OfflineTtsConfig GetOfflineTtsConfig(JNIEnv *env, jobject config) {
   OfflineTtsConfig ans;
 
+  SHERPA_ONNX_LOGE(">>> GetOfflineTtsConfig jni/offline-tts.cc start")
   jclass cls = env->GetObjectClass(config);
   jfieldID fid;
 
@@ -191,6 +192,8 @@ static OfflineTtsConfig GetOfflineTtsConfig(JNIEnv *env, jobject config) {
   fid = env->GetFieldID(cls, "silenceScale", "F");
   ans.silence_scale = env->GetFloatField(config, fid);
 
+
+  SHERPA_ONNX_LOGE(">>> GetOfflineTtsConfig jni/offline-tts.cc end")
   return ans;
 }
 
@@ -199,6 +202,7 @@ static OfflineTtsConfig GetOfflineTtsConfig(JNIEnv *env, jobject config) {
 SHERPA_ONNX_EXTERN_C
 JNIEXPORT jlong JNICALL Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset(
     JNIEnv *env, jobject /*obj*/, jobject asset_manager, jobject _config) {
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc start")
 #if __ANDROID_API__ >= 9
   AAssetManager *mgr = AAssetManager_fromJava(env, asset_manager);
   if (!mgr) {
@@ -206,14 +210,20 @@ JNIEXPORT jlong JNICALL Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset(
     return 0;
   }
 #endif
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc config start")
   auto config = sherpa_onnx::GetOfflineTtsConfig(env, _config);
   SHERPA_ONNX_LOGE("config:\n%s", config.ToString().c_str());
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc config end")
 
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc tts start")
   auto tts = new sherpa_onnx::OfflineTts(
 #if __ANDROID_API__ >= 9
       mgr,
 #endif
       config);
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc tts end")
+
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc end return (jlong)tts")
 
   return (jlong)tts;
 }
@@ -260,10 +270,13 @@ JNIEXPORT jobjectArray JNICALL
 Java_com_k2fsa_sherpa_onnx_OfflineTts_generateImpl(JNIEnv *env, jobject /*obj*/,
                                                    jlong ptr, jstring text,
                                                    jint sid, jfloat speed) {
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateImpl jni/offline-tts.cc start")
   const char *p_text = env->GetStringUTFChars(text, nullptr);
 
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateImpl jni/offline-tts.cc generate audio start")
   auto audio = reinterpret_cast<sherpa_onnx::OfflineTts *>(ptr)->Generate(
       p_text, sid, speed);
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateImpl jni/offline-tts.cc generate audio end")
 
   jfloatArray samples_arr = env->NewFloatArray(audio.samples.size());
   env->SetFloatArrayRegion(samples_arr, 0, audio.samples.size(),
@@ -277,6 +290,7 @@ Java_com_k2fsa_sherpa_onnx_OfflineTts_generateImpl(JNIEnv *env, jobject /*obj*/,
 
   env->ReleaseStringUTFChars(text, p_text);
 
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateImpl jni/offline-tts.cc end")
   return obj_arr;
 }
 
@@ -285,6 +299,7 @@ JNIEXPORT jobjectArray JNICALL
 Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithCallbackImpl(
     JNIEnv *env, jobject /*obj*/, jlong ptr, jstring text, jint sid,
     jfloat speed, jobject callback) {
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithCallbackImpl jni/offline-tts.cc start")
   const char *p_text = env->GetStringUTFChars(text, nullptr);
 
   std::function<int32_t(const float *, int32_t, float)> callback_wrapper =
@@ -339,6 +354,7 @@ Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithCallbackImpl(
 
   env->ReleaseStringUTFChars(text, p_text);
 
+  SHERPA_ONNX_LOGE(">>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithCallbackImpl jni/offline-tts.cc end")
   return obj_arr;
 }
 

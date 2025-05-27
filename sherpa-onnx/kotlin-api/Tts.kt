@@ -7,13 +7,13 @@ data class OfflineTtsVitsModelConfig(
     var model: String = "",
     var lexicon: String = "",
     var tokens: String = "",
-    var dataDir: String = "",
-    var dictDir: String = "",
+     var dataDir: String = "", // 이 필드는 필요 없을 수도 있습니다.
+    var dictDir: String = "", // <-- MeCab 사전 디렉토리 경로 추가
+//    var bertModelPath: String = "", // <-- BERT ONNX 모델 경로 추가
     var noiseScale: Float = 0.667f,
     var noiseScaleW: Float = 0.8f,
     var lengthScale: Float = 1.0f,
 )
-
 data class OfflineTtsMatchaModelConfig(
     var acousticModel: String = "",
     var vocoder: String = "",
@@ -231,6 +231,10 @@ fun getOfflineTtsConfig(
             model = "$modelDir/$modelName",
             lexicon = "$modelDir/$lexicon",
             tokens = "$modelDir/tokens.txt",
+//            tokens = "$modelDir/tokens_ko1.txt",
+//            dictDir = "melo/mecab-ko-dic", // <-- MeCab 사전 디렉토리 경로
+//            bertModelPath = "melo/bert-korean.onnx", // <-- BERT ONNX 모델 경로
+
             dataDir = dataDir,
             dictDir = dictDir,
         )

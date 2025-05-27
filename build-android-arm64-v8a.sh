@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+ANDROID_NDK=${1:-/Users/jyg/Library/Android/sdk/ndk/22.1.7171670}
+export ANDROID_NDK 
 set -ex
 
 # If BUILD_SHARED_LIBS is ON, we use libonnxruntime.so
@@ -38,33 +40,33 @@ cd $dir
 #   -g
 #   -DANDROID
 
-if [ -z $ANDROID_NDK ]; then
-  ANDROID_NDK=/star-fj/fangjun/software/android-sdk/ndk/22.1.7171670
-  if [ $BUILD_SHARED_LIBS == OFF ]; then
-    ANDROID_NDK=/star-fj/fangjun/software/android-sdk/ndk/27.0.11718014
-  fi
-  # or use
-  # ANDROID_NDK=/star-fj/fangjun/software/android-ndk
-  #
-  # Inside the $ANDROID_NDK directory, you can find a binary ndk-build
-  # and some other files like the file "build/cmake/android.toolchain.cmake"
+#if [ -z $ANDROID_NDK ]; then
+#  ANDROID_NDK=/star-fj/fangjun/software/android-sdk/ndk/22.1.7171670
+#  if [ $BUILD_SHARED_LIBS == OFF ]; then
+#    ANDROID_NDK=/star-fj/fangjun/software/android-sdk/ndk/27.0.11718014
+#  fi
+#  # or use
+#  # ANDROID_NDK=/star-fj/fangjun/software/android-ndk
+#  #
+#  # Inside the $ANDROID_NDK directory, you can find a binary ndk-build
+#  # and some other files like the file "build/cmake/android.toolchain.cmake"
+#
+#  if [ ! -d $ANDROID_NDK ]; then
+#    # For macOS, I have installed Android Studio, select the menu
+#    # Tools -> SDK manager -> Android SDK
+#    # and set "Android SDK location" to /Users/fangjun/software/my-android
+#    ANDROID_NDK=/Users/fangjun/software/my-android/ndk/22.1.7171670
+#
+#    if [ $BUILD_SHARED_LIBS == OFF ]; then
+#      ANDROID_NDK=/Users/fangjun/software/my-android/ndk/27.0.11718014
+#    fi
+#  fi
+#fi
 
-  if [ ! -d $ANDROID_NDK ]; then
-    # For macOS, I have installed Android Studio, select the menu
-    # Tools -> SDK manager -> Android SDK
-    # and set "Android SDK location" to /Users/fangjun/software/my-android
-    ANDROID_NDK=/Users/fangjun/software/my-android/ndk/22.1.7171670
-
-    if [ $BUILD_SHARED_LIBS == OFF ]; then
-      ANDROID_NDK=/Users/fangjun/software/my-android/ndk/27.0.11718014
-    fi
-  fi
-fi
-
-if [ ! -d $ANDROID_NDK ]; then
-  echo Please set the environment variable ANDROID_NDK before you run this script
-  exit 1
-fi
+#if [ ! -d $ANDROID_NDK ]; then
+#  echo Please set the environment variable ANDROID_NDK before you run this script
+#  exit 1
+#fi
 
 echo "ANDROID_NDK: $ANDROID_NDK"
 sleep 1

@@ -30,6 +30,7 @@ struct SilenceInterval {
 };
 
 GeneratedAudio GeneratedAudio::ScaleSilence(float scale) const {
+  SHERPA_ONNX_LOGE(">>> GeneratedAudio::ScaleSilence csrc/offline-tts.h start")
   if (scale == 1) {
     return *this;
   }
@@ -87,10 +88,12 @@ GeneratedAudio GeneratedAudio::ScaleSilence(float scale) const {
     ans.samples.insert(ans.samples.end(), samples.begin() + i, samples.end());
   }
 
+  SHERPA_ONNX_LOGE(">>> GeneratedAudio::ScaleSilence csrc/offline-tts.h end")
   return ans;
 }
 
 void OfflineTtsConfig::Register(ParseOptions *po) {
+  SHERPA_ONNX_LOGE(">>> OfflineTtsConfig::Register csrc/offline-tts.h start")
   model.Register(po);
 
   po->Register("tts-rule-fsts", &rule_fsts,
@@ -115,9 +118,11 @@ void OfflineTtsConfig::Register(ParseOptions *po) {
   po->Register("tts-silence-scale", &silence_scale,
                "Duration of the pause is scaled by this number. So a smaller "
                "value leads to a shorter pause.");
+  SHERPA_ONNX_LOGE(">>> OfflineTtsConfig::Register csrc/offline-tts.h end")
 }
 
 bool OfflineTtsConfig::Validate() const {
+  SHERPA_ONNX_LOGE(">>> OfflineTtsConfig::Validate csrc/offline-tts.h start")
   if (!rule_fsts.empty()) {
     std::vector<std::string> files;
     SplitStringToVector(rule_fsts, ",", false, &files);
@@ -145,6 +150,7 @@ bool OfflineTtsConfig::Validate() const {
     return false;
   }
 
+  SHERPA_ONNX_LOGE(">>> OfflineTtsConfig::Validate csrc/offline-tts.h end")
   return model.Validate();
 }
 

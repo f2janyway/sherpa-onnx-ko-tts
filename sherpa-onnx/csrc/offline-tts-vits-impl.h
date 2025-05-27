@@ -34,6 +34,8 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
         model_(std::make_unique<OfflineTtsVitsModel>(config.model)) {
     InitFrontend();
 
+    SHERPA_ONNX_LOGE("!!OfflineTtsVitsImpl//Create model:");
+
     if (!config.rule_fsts.empty()) {
       std::vector<std::string> files;
       SplitStringToVector(config.rule_fsts, ",", false, &files);
@@ -137,8 +139,8 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
           tn_list_.push_back(
               std::make_unique<kaldifst::TextNormalizer>(std::move(r)));
         }  // for (; !reader->Done(); reader->Next())
-      }    // for (const auto &f : files)
-    }      // if (!config.rule_fars.empty())
+      }  // for (const auto &f : files)
+    }  // if (!config.rule_fars.empty())
   }
 
   int32_t SampleRate() const override {
@@ -339,30 +341,72 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
   void InitFrontend(Manager *mgr) {
     const auto &meta_data = model_->GetMetaData();
 
+    // melo tts korean test
+    // meta_data.frontend = "characters";
+    // hack: melo-tts-korean용
+    // prrint
+
+    SHERPA_ONNX_LOGE("!!InitFrontEnd meta_data.frontend: %s", meta_data.frontend.c_str());
+    SHERPA_ONNX_LOGE("!!InitFrontEnd config_.model.vits.model: %s",
+                     config_.model.vits.model.c_str());
+    SHERPA_ONNX_LOGE("!!InitFrontEnd config_.model.vits.lexicon: %s",
+                     config_.model.vits.lexicon.c_str());
+    SHERPA_ONNX_LOGE("!!InitFrontEnd config_.model.vits.tokens: %s",
+                     config_.model.vits.tokens.c_str());
+
+    // if (model_->GetMetaData().language == "Korean" &&
+    //     config_.model.vits.dict_dir.empty() &&
+    //     config_.model.vits.lexicon.empty()) {
+    //     SHERPA_ONNX_LOGE("!!InitFrontEnd forcely create init OfflineTtsCharacterFrontend: ");
+    //   frontend_ = std::make_unique<OfflineTtsCharacterFrontend>(
+    //       mgr, config_.model.vits.tokens, model_->GetMetaData()
+    //     );
+    //     SHERPA_ONNX_LOGE("!!InitFrontEnd forcely create success OfflineTtsCharacterFrontend: ");
+    //   return;
+    // }
     if (meta_data.frontend == "characters") {
+      SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init OfflineTtsCharacterFrontend:1 ");
       frontend_ = std::make_unique<OfflineTtsCharacterFrontend>(
           mgr, config_.model.vits.tokens, meta_data);
     } else if (meta_data.jieba && !config_.model.vits.dict_dir.empty() &&
                meta_data.is_melo_tts) {
+        SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init OfflineTtsCharacterFrontend:2 ");
       frontend_ = std::make_unique<MeloTtsLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           config_.model.vits.dict_dir, model_->GetMetaData(),
           config_.model.debug);
     } else if (meta_data.jieba && !config_.model.vits.dict_dir.empty()) {
+      SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init JiebaLexicon:3 ");
       frontend_ = std::make_unique<JiebaLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           config_.model.vits.dict_dir, config_.model.debug);
     } else if (meta_data.is_melo_tts && meta_data.language == "English") {
+      SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init MeloTtsLexicon:4 ");
       frontend_ = std::make_unique<MeloTtsLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           model_->GetMetaData(), config_.model.debug);
     } else if ((meta_data.is_piper || meta_data.is_coqui ||
                 meta_data.is_icefall) &&
                !config_.model.vits.data_dir.empty()) {
+                SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init PiperPhonemizeLexicon:5 ");
       frontend_ = std::make_unique<PiperPhonemizeLexicon>(
           mgr, config_.model.vits.tokens, config_.model.vits.data_dir,
           meta_data);
-    } else {
+    }  else if (meta_data.is_melo_tts){
+      SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init MeloTtsLexicon:6 ");
+      frontend_ = std::make_unique<MeloTtsLexicon>(
+          mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
+          model_->GetMetaData(), config_.model.debug);
+    }
+    else {
+      SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init Lexicon:6 ");
       if (config_.model.vits.lexicon.empty()) {
         SHERPA_ONNX_LOGE(
             "Not a model using characters as modeling unit. Please provide "

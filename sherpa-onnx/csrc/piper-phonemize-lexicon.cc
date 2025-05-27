@@ -77,7 +77,7 @@ static std::unordered_map<char32_t, int32_t> ReadTokens(std::istream &is) {
         continue;
       }
 
-      SHERPA_ONNX_LOGE("Error when reading tokens at Line %s. size: %d",
+      SHERPA_ONNX_LOGE("!!ReadTokens2//piper-phonenize-lexicon.cc Error when reading tokens at Line %s. size: %d",
                        line.c_str(), static_cast<int32_t>(s.size()));
       exit(-1);
     }

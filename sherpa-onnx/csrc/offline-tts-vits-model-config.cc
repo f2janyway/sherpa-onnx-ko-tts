@@ -12,6 +12,7 @@
 namespace sherpa_onnx {
 
 void OfflineTtsVitsModelConfig::Register(ParseOptions *po) {
+  SHERPA_ONNX_LOGE(">>> OfflineTtsVitsModelConfig::Register csrc/offline-tts-vits-model-config.cc start")
   po->Register("vits-model", &model, "Path to VITS model");
   po->Register("vits-lexicon", &lexicon, "Path to lexicon.txt for VITS models");
   po->Register("vits-tokens", &tokens, "Path to tokens.txt for VITS models");
@@ -26,9 +27,11 @@ void OfflineTtsVitsModelConfig::Register(ParseOptions *po) {
                "noise_scale_w for VITS models");
   po->Register("vits-length-scale", &length_scale,
                "Speech speed. Larger->Slower; Smaller->faster.");
+  SHERPA_ONNX_LOGE(">>> OfflineTtsVitsModelConfig::Register csrc/offline-tts-vits-model-config.cc  end")
 }
 
 bool OfflineTtsVitsModelConfig::Validate() const {
+  SHERPA_ONNX_LOGE(">>> OfflineTtsVitsModelConfig::Validate csrc/offline-tts-vits-model-config.cc start")
   if (model.empty()) {
     SHERPA_ONNX_LOGE("Please provide --vits-model");
     return false;
@@ -93,6 +96,7 @@ bool OfflineTtsVitsModelConfig::Validate() const {
       }
     }
   }
+  SHERPA_ONNX_LOGE(">>> OfflineTtsVitsModelConfig::Validate csrc/offline-tts-vits-model-config.cc end")
   return true;
 }
 
