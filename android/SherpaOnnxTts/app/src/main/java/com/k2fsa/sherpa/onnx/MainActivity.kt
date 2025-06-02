@@ -141,12 +141,14 @@ class MainActivity : AppCompatActivity() {
         generate.isEnabled = false
         stopped = false
         Thread {
+            Log.d(TAG, "Generating audio above")
             val audio = tts.generateWithCallback(
                 text = textStr,
                 sid = sidInt,
                 speed = speedFloat,
                 callback = this::callback
             )
+            Log.d(TAG, "Generating audio bottom")
 
             val filename = application.filesDir.absolutePath + "/generated.wav"
             val ok = audio.samples.size > 0 && audio.save(filename)

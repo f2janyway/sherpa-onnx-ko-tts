@@ -179,9 +179,11 @@ OfflineTts::~OfflineTts() = default;
 GeneratedAudio OfflineTts::Generate(
     const std::string &text, int64_t sid /*=0*/, float speed /*= 1.0*/,
     GeneratedAudioCallback callback /*= nullptr*/) const {
+      SHERPA_ONNX_LOGE(">>>> OfflineTts::Generate csrc/offline-tts.cc start");
 #if !defined(_WIN32)
   return impl_->Generate(text, sid, speed, std::move(callback));
 #else
+
   if (IsUtf8(text)) {
     return impl_->Generate(text, sid, speed, std::move(callback));
   } else if (IsGB2312(text)) {
@@ -200,6 +202,7 @@ GeneratedAudio OfflineTts::Generate(
     return impl_->Generate(text, sid, speed, std::move(callback));
   }
 #endif
+  SHERPA_ONNX_LOGE(">>>> OfflineTts::Generate csrc/offline-tts.cc end");
 }
 
 int32_t OfflineTts::SampleRate() const { return impl_->SampleRate(); }

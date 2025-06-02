@@ -55,14 +55,23 @@ class OfflineTtsVitsModel::Impl {
   }
 
   Ort::Value Run(Ort::Value x, Ort::Value tones, int64_t sid, float speed) {
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "start");
     if (meta_data_.num_speakers == 1) {
       // For MeloTTS, we hardcode sid to the one contained in the meta data
       sid = meta_data_.speaker_id;
     }
 
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "create cpu");
     auto memory_info =
         Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "xshape");
     std::vector<int64_t> x_shape = x.GetTensorTypeAndShapeInfo().GetShape();
     if (x_shape[0] != 1) {
       SHERPA_ONNX_LOGE("Support only batch_size == 1. Given: %d",
@@ -107,9 +116,15 @@ class OfflineTtsVitsModel::Impl {
     inputs.push_back(std::move(length_scale_tensor));
     inputs.push_back(std::move(noise_scale_w_tensor));
 
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "sess_->Run() start");
     auto out =
         sess_->Run({}, input_names_ptr_.data(), inputs.data(), inputs.size(),
                    output_names_ptr_.data(), output_names_ptr_.size());
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "sess_->Run() end");
 
     return std::move(out[0]);
   }
@@ -121,7 +136,9 @@ class OfflineTtsVitsModel::Impl {
     sess_ = std::make_unique<Ort::Session>(env_, model_data, model_data_length,
                                            sess_opts_);
 
-    SHERPA_ONNX_LOGE(">>>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc start");
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc "
+        "start");
     GetInputNames(sess_.get(), &input_names_, &input_names_ptr_);
 
     GetOutputNames(sess_.get(), &output_names_, &output_names_ptr_);
@@ -209,7 +226,9 @@ class OfflineTtsVitsModel::Impl {
       // version 0 is the first version
       // version 2: add jieba=1 to the metadata
     }
-    SHERPA_ONNX_LOGE(">>>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc  end");
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc "
+        " end");
   }
 
   Ort::Value RunVitsPiperOrCoqui(Ort::Value x, int64_t sid, float speed) {

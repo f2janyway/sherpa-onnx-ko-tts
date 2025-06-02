@@ -154,6 +154,7 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
   GeneratedAudio Generate(
       const std::string &_text, int64_t sid = 0, float speed = 1.0,
       GeneratedAudioCallback callback = nullptr) const override {
+    SHERPA_ONNX_LOGE(">>> Generate offline-tts-vits start");
     const auto &meta_data = model_->GetMetaData();
     int32_t num_speakers = meta_data.num_speakers;
 
@@ -250,9 +251,13 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     int32_t x_size = static_cast<int32_t>(x.size());
 
     if (config_.max_num_sentences <= 0 || x_size <= config_.max_num_sentences) {
+      SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits create 0");
       auto ans = Process(x, tones, sid, speed);
+      SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits created 0");
       if (callback) {
+        SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits callback 0");
         callback(ans.samples.data(), ans.samples.size(), 1.0);
+        SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits callback 0");
       }
       return ans;
     }
@@ -356,29 +361,42 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     // hack: melo-tts-korean용
     // prrint
 
-    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h meta_data.frontend: %s ", meta_data.frontend.c_str());
-    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h config_.model.vits.model: %s",
-                     config_.model.vits.model.c_str());
-    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h config_.model.vits.lexicon: %s",
-                     config_.model.vits.lexicon.c_str());
-    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h config_.model.vits.tokens: %s",
-                     config_.model.vits.tokens.c_str());
+    SHERPA_ONNX_LOGE(
+        ">>>> InitFrontEnd csrc/offline-tts-vits-impl.h meta_data.frontend: "
+        "%s ",
+        meta_data.frontend.c_str());
+    SHERPA_ONNX_LOGE(
+        ">>>> InitFrontEnd csrc/offline-tts-vits-impl.h "
+        "config_.model.vits.model: %s",
+        config_.model.vits.model.c_str());
+    SHERPA_ONNX_LOGE(
+        ">>>> InitFrontEnd csrc/offline-tts-vits-impl.h "
+        "config_.model.vits.lexicon: %s",
+        config_.model.vits.lexicon.c_str());
+    SHERPA_ONNX_LOGE(
+        ">>>> InitFrontEnd csrc/offline-tts-vits-impl.h "
+        "config_.model.vits.tokens: %s",
+        config_.model.vits.tokens.c_str());
 
     // if (model_->GetMetaData().language == "Korean" &&
     //     config_.model.vits.dict_dir.empty() &&
     //     config_.model.vits.lexicon.empty()) {
-    //     SHERPA_ONNX_LOGE("!!InitFrontEnd forcely create init OfflineTtsCharacterFrontend: ");
+    //     SHERPA_ONNX_LOGE("!!InitFrontEnd forcely create init
+    //     OfflineTtsCharacterFrontend: ");
     //   frontend_ = std::make_unique<OfflineTtsCharacterFrontend>(
     //       mgr, config_.model.vits.tokens, model_->GetMetaData()
     //     );
-    //     SHERPA_ONNX_LOGE("!!InitFrontEnd forcely create success OfflineTtsCharacterFrontend: ");
+    //     SHERPA_ONNX_LOGE("!!InitFrontEnd forcely create success
+    //     OfflineTtsCharacterFrontend: ");
     //   return;
     // }
-        // 1. 한국어 MeloTTS 모델에 대한 조건 추가
-    // meta_data.is_melo_tts가 true이고, meta_data.language가 "Korean"일 때 이 경로를 타도록 합니다.
-    // lexicon과 tokens 경로는 config.json에서 가져오므로 그대로 사용합니다.
+    // 1. 한국어 MeloTTS 모델에 대한 조건 추가
+    // meta_data.is_melo_tts가 true이고, meta_data.language가 "Korean"일 때 이
+    // 경로를 타도록 합니다. lexicon과 tokens 경로는 config.json에서 가져오므로
+    // 그대로 사용합니다.
     if (meta_data.is_melo_tts && meta_data.language == "Korean") {
-      SHERPA_ONNX_LOGE("!!InitFrontEnd create init MeloTtsLexicon for Korean: New Path");
+      SHERPA_ONNX_LOGE(
+          "!!InitFrontEnd create init MeloTtsLexicon for Korean: New Path");
       frontend_ = std::make_unique<MeloTtsLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           model_->GetMetaData(), config_.model.debug);
@@ -389,42 +407,36 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
           mgr, config_.model.vits.tokens, meta_data);
     } else if (meta_data.jieba && !config_.model.vits.dict_dir.empty() &&
                meta_data.is_melo_tts) {
-        SHERPA_ONNX_LOGE(
+      SHERPA_ONNX_LOGE(
           "!!InitFrontEnd create init OfflineTtsCharacterFrontend:2 ");
       frontend_ = std::make_unique<MeloTtsLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           config_.model.vits.dict_dir, model_->GetMetaData(),
           config_.model.debug);
     } else if (meta_data.jieba && !config_.model.vits.dict_dir.empty()) {
-      SHERPA_ONNX_LOGE(
-          "!!InitFrontEnd create init JiebaLexicon:3 ");
+      SHERPA_ONNX_LOGE("!!InitFrontEnd create init JiebaLexicon:3 ");
       frontend_ = std::make_unique<JiebaLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           config_.model.vits.dict_dir, config_.model.debug);
     } else if (meta_data.is_melo_tts && meta_data.language == "English") {
-      SHERPA_ONNX_LOGE(
-          "!!InitFrontEnd create init MeloTtsLexicon:4 ");
+      SHERPA_ONNX_LOGE("!!InitFrontEnd create init MeloTtsLexicon:4 ");
       frontend_ = std::make_unique<MeloTtsLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           model_->GetMetaData(), config_.model.debug);
     } else if ((meta_data.is_piper || meta_data.is_coqui ||
                 meta_data.is_icefall) &&
                !config_.model.vits.data_dir.empty()) {
-                SHERPA_ONNX_LOGE(
-          "!!InitFrontEnd create init PiperPhonemizeLexicon:5 ");
+      SHERPA_ONNX_LOGE("!!InitFrontEnd create init PiperPhonemizeLexicon:5 ");
       frontend_ = std::make_unique<PiperPhonemizeLexicon>(
           mgr, config_.model.vits.tokens, config_.model.vits.data_dir,
           meta_data);
-    }  else if (meta_data.is_melo_tts){
-      SHERPA_ONNX_LOGE(
-          "!!InitFrontEnd create init MeloTtsLexicon:6 ");
+    } else if (meta_data.is_melo_tts) {
+      SHERPA_ONNX_LOGE("!!InitFrontEnd create init MeloTtsLexicon:6 ");
       frontend_ = std::make_unique<MeloTtsLexicon>(
           mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
           model_->GetMetaData(), config_.model.debug);
-    }
-    else {
-      SHERPA_ONNX_LOGE(
-          "!!InitFrontEnd create init Lexicon:6 ");
+    } else {
+      SHERPA_ONNX_LOGE("!!InitFrontEnd create init Lexicon:6 ");
       if (config_.model.vits.lexicon.empty()) {
         SHERPA_ONNX_LOGE(
             "Not a model using characters as modeling unit. Please provide "
@@ -492,15 +504,24 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
   GeneratedAudio Process(const std::vector<std::vector<int64_t>> &tokens,
                          const std::vector<std::vector<int64_t>> &tones,
                          int32_t sid, float speed) const {
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h start");
     int32_t num_tokens = 0;
     for (const auto &k : tokens) {
       num_tokens += k.size();
     }
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h num_tokens %d",
+                     num_tokens);
 
     std::vector<int64_t> x;
     x.reserve(num_tokens);
     for (const auto &k : tokens) {
       x.insert(x.end(), k.begin(), k.end());
+    }
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x.size() %d",
+                     x.size());
+    for (int i = 0; i < x.size(); i++) {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x[%d] %d", i,
+                       x[i]);
     }
 
     std::vector<int64_t> tone_list;
@@ -510,29 +531,66 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
         tone_list.insert(tone_list.end(), k.begin(), k.end());
       }
     }
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list.size() %d",
+                     tone_list.size());
 
+    for (int i = 0; i < tone_list.size(); i++) {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list[%d] %d",
+                       i, tone_list[i]);
+    }
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h sid %d", sid);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h speed %f", speed);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h memory_info  start");
     auto memory_info =
         Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h memory_info end ");
 
     std::array<int64_t, 2> x_shape = {1, static_cast<int32_t>(x.size())};
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x_shape[0] %d",
+                     x_shape[0]);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x_shape[1] %d",
+                     x_shape[1]);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x.size() %d",
+                     x.size());
     Ort::Value x_tensor = Ort::Value::CreateTensor(
         memory_info, x.data(), x.size(), x_shape.data(), x_shape.size());
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h x_tensor.GetTensorTypeAndShapeInfo().GetShape()[0] %d",
+        x_tensor.GetTensorTypeAndShapeInfo().GetShape()[0]);
 
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h x_tensor.GetTensorTypeAndShapeInfo().GetShape()[1] %d",
+        x_tensor.GetTensorTypeAndShapeInfo().GetShape()[1]);
     Ort::Value tones_tensor{nullptr};
     if (!tones.empty()) {
       tones_tensor = Ort::Value::CreateTensor(memory_info, tone_list.data(),
                                               tone_list.size(), x_shape.data(),
                                               x_shape.size());
+      SHERPA_ONNX_LOGE(
+          " >>> Process offline-tts-vits-impl.h tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[0] %d",
+          tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[0]);
+      SHERPA_ONNX_LOGE(
+          " >>> Process offline-tts-vits-impl.h tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[1] %d",
+          tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[1]);
     }
 
     Ort::Value audio{nullptr};
     if (tones.empty()) {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h no tones");
       audio = model_->Run(std::move(x_tensor), sid, speed);
     } else {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h has tones");
       audio =
           model_->Run(std::move(x_tensor), std::move(tones_tensor), sid, speed);
     }
 
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h audio.GetTensorTypeAndShapeInfo().GetShape()[0] %d",
+        audio.GetTensorTypeAndShapeInfo().GetShape()[0]);
+
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h audio.GetTensorTypeAndShapeInfo().GetShape()[1] %d",
+        audio.GetTensorTypeAndShapeInfo().GetShape()[1]);
     std::vector<int64_t> audio_shape =
         audio.GetTensorTypeAndShapeInfo().GetShape();
 
@@ -545,13 +603,19 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     const float *p = audio.GetTensorData<float>();
 
     GeneratedAudio ans;
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h total %d", total);
     ans.sample_rate = model_->GetMetaData().sample_rate;
     ans.samples = std::vector<float>(p, p + total);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h ans.samples.size() %d", ans.samples.size());
 
     float silence_scale = config_.silence_scale;
     if (silence_scale != 1) {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h silence_scale %f", silence_scale);
       ans = ans.ScaleSilence(silence_scale);
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h ans.samples.size() %d", ans.samples.size());
     }
+
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h end ");
 
     return ans;
   }

@@ -344,7 +344,9 @@ Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithCallbackImpl(
     return env->CallIntMethod(should_continue, int_value_mid);
   };
 
+  SHERPA_ONNX_LOGE(">>>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithCallbackImpl jni/offline-tts.cc tts create");
   auto tts = reinterpret_cast<sherpa_onnx::OfflineTts *>(ptr);
+  SHERPA_ONNX_LOGE(">>>> Java_com_k2fsa_sherpa_onnx_OfflineTts_generateWithCallbackImpl jni/offline-tts.cc generate audio start");
   auto audio = tts->Generate(p_text, sid, speed, callback_wrapper);
 
   jfloatArray samples_arr = env->NewFloatArray(audio.samples.size());
