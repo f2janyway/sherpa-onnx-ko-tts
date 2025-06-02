@@ -157,6 +157,8 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     const auto &meta_data = model_->GetMetaData();
     int32_t num_speakers = meta_data.num_speakers;
 
+    SHERPA_ONNX_LOGE("sid: %d", static_cast<int32_t>(sid));
+    SHERPA_ONNX_LOGE("speed: %f", speed);
     if (num_speakers == 0 && sid != 0) {
 #if __OHOS__
       SHERPA_ONNX_LOGE(
@@ -285,6 +287,8 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
 
     int32_t k = 0;
 
+    SHERPA_ONNX_LOGE("Start processing sentences");
+
     for (int32_t b = 0; b != num_batches && should_continue; ++b) {
       batch_x.clear();
       batch_tones.clear();
@@ -308,7 +312,9 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
         // the callback returns to avoid segmentation fault.
       }
     }
+    SHERPA_ONNX_LOGE("Finished processing sentences");
 
+    SHERPA_ONNX_LOGE("Start processing the remaining sentences");
     batch_x.clear();
     batch_tones.clear();
     while (k < static_cast<int32_t>(x.size()) && should_continue) {
@@ -319,7 +325,9 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
 
       ++k;
     }
+    SHERPA_ONNX_LOGE("Finished processing the remaining sentences");
 
+    SHERPA_ONNX_LOGE("Start processing the last batch");
     if (!batch_x.empty()) {
       auto audio = Process(batch_x, batch_tones, sid, speed);
       ans.sample_rate = audio.sample_rate;
@@ -332,7 +340,9 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
         // the callback returns to avoid segmentation fault.
       }
     }
+    SHERPA_ONNX_LOGE("Finished processing the last batch");
 
+    SHERPA_ONNX_LOGE("Finished processing all sentences");
     return ans;
   }
 
@@ -346,12 +356,12 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     // hack: melo-tts-korean용
     // prrint
 
-    SHERPA_ONNX_LOGE("!!InitFrontEnd meta_data.frontend: %s", meta_data.frontend.c_str());
-    SHERPA_ONNX_LOGE("!!InitFrontEnd config_.model.vits.model: %s",
+    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h meta_data.frontend: %s ", meta_data.frontend.c_str());
+    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h config_.model.vits.model: %s",
                      config_.model.vits.model.c_str());
-    SHERPA_ONNX_LOGE("!!InitFrontEnd config_.model.vits.lexicon: %s",
+    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h config_.model.vits.lexicon: %s",
                      config_.model.vits.lexicon.c_str());
-    SHERPA_ONNX_LOGE("!!InitFrontEnd config_.model.vits.tokens: %s",
+    SHERPA_ONNX_LOGE(">>>> InitFrontEnd csrc/offline-tts-vits-impl.h config_.model.vits.tokens: %s",
                      config_.model.vits.tokens.c_str());
 
     // if (model_->GetMetaData().language == "Korean" &&
@@ -364,7 +374,15 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     //     SHERPA_ONNX_LOGE("!!InitFrontEnd forcely create success OfflineTtsCharacterFrontend: ");
     //   return;
     // }
-    if (meta_data.frontend == "characters") {
+        // 1. 한국어 MeloTTS 모델에 대한 조건 추가
+    // meta_data.is_melo_tts가 true이고, meta_data.language가 "Korean"일 때 이 경로를 타도록 합니다.
+    // lexicon과 tokens 경로는 config.json에서 가져오므로 그대로 사용합니다.
+    if (meta_data.is_melo_tts && meta_data.language == "Korean") {
+      SHERPA_ONNX_LOGE("!!InitFrontEnd create init MeloTtsLexicon for Korean: New Path");
+      frontend_ = std::make_unique<MeloTtsLexicon>(
+          mgr, config_.model.vits.lexicon, config_.model.vits.tokens,
+          model_->GetMetaData(), config_.model.debug);
+    } else if (meta_data.frontend == "characters") {
       SHERPA_ONNX_LOGE(
           "!!InitFrontEnd create init OfflineTtsCharacterFrontend:1 ");
       frontend_ = std::make_unique<OfflineTtsCharacterFrontend>(

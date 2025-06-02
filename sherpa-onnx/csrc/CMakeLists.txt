@@ -174,6 +174,7 @@ if(SHERPA_ONNX_ENABLE_TTS)
     kokoro-multi-lang-lexicon.cc
     lexicon.cc
     melo-tts-lexicon.cc
+          melo-tts-ko.cc
     offline-tts-character-frontend.cc
     offline-tts-frontend.cc
     offline-tts-impl.cc

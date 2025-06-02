@@ -230,6 +230,8 @@ fun getOfflineTtsConfig(
         OfflineTtsVitsModelConfig(
             model = "$modelDir/$modelName",
             lexicon = "$modelDir/$lexicon",
+//            lexicon = "",
+//            tokens = "",
             tokens = "$modelDir/tokens.txt",
 //            tokens = "$modelDir/tokens_ko1.txt",
 //            dictDir = "melo/mecab-ko-dic", // <-- MeCab 사전 디렉토리 경로

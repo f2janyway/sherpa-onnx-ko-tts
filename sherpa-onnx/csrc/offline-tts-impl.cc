@@ -24,7 +24,7 @@ namespace sherpa_onnx {
 
 std::vector<int64_t> OfflineTtsImpl::AddBlank(const std::vector<int64_t> &x,
                                               int32_t blank_id /*= 0*/) const {
-  SHERPA_ONNX_LOGE(">>> OfflineTtsImpl::AddBlank  csrc/offline-tts-impl.cc start");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsImpl::AddBlank  csrc/offline-tts-impl.cc start");
   // we assume the blank ID is 0
   std::vector<int64_t> buffer(x.size() * 2 + 1, blank_id);
   int32_t i = 1;
@@ -32,21 +32,21 @@ std::vector<int64_t> OfflineTtsImpl::AddBlank(const std::vector<int64_t> &x,
     buffer[i] = k;
     i += 2;
   }
-  SHERPA_ONNX_LOGE(">>> OfflineTtsImpl::AddBlank  csrc/offline-tts-impl.cc end");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsImpl::AddBlank  csrc/offline-tts-impl.cc end");
   return buffer;
 }
 
 std::unique_ptr<OfflineTtsImpl> OfflineTtsImpl::Create(
     const OfflineTtsConfig &config) {
-  SHERPA_ONNX_LOGE(">>> OfflineTtsImpl::Create csrc/offline-tts-impl.cc start");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsImpl::Create csrc/offline-tts-impl.cc start");
   if (!config.model.vits.model.empty()) {
-    SHERPA_ONNX_LOGE(">>> OfflineTtsImpl::Create vits  csrc/offline-tts-impl.cc end");
+    SHERPA_ONNX_LOGE(">>>> OfflineTtsImpl::Create vits  csrc/offline-tts-impl.cc end");
     return std::make_unique<OfflineTtsVitsImpl>(config);
   } else if (!config.model.matcha.acoustic_model.empty()) {
-    SHERPA_ONNX_LOGE(">>> OfflineTtsImpl::Create matcha  csrc/offline-tts-impl.cc end");
+    SHERPA_ONNX_LOGE(">>>> OfflineTtsImpl::Create matcha  csrc/offline-tts-impl.cc end");
     return std::make_unique<OfflineTtsMatchaImpl>(config);
   }
-  SHERPA_ONNX_LOGE(">>> OfflineTtsImpl::Create kokoro  csrc/offline-tts-impl.cc end");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsImpl::Create kokoro  csrc/offline-tts-impl.cc end");
   return std::make_unique<OfflineTtsKokoroImpl>(config);
 }
 

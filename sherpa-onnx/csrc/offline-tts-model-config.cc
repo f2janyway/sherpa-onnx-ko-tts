@@ -9,7 +9,7 @@
 namespace sherpa_onnx {
 
 void OfflineTtsModelConfig::Register(ParseOptions *po) {
-  SHERPA_ONNX_LOGE(">>> OfflineTtsModelConfig::Register csrc/offline-tts-model-config.cc start");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsModelConfig::Register csrc/offline-tts-model-config.cc start");
   vits.Register(po);
   matcha.Register(po);
   kokoro.Register(po);
@@ -22,11 +22,11 @@ void OfflineTtsModelConfig::Register(ParseOptions *po) {
 
   po->Register("provider", &provider,
                "Specify a provider to use: cpu, cuda, coreml");
-  SHERPA_ONNX_LOGE(">>> OfflineTtsModelConfig::Register csrc/offline-tts-model-config.cc end");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsModelConfig::Register csrc/offline-tts-model-config.cc end");
 }
 
 bool OfflineTtsModelConfig::Validate() const {
-  SHERPA_ONNX_LOGE(">>> OfflineTtsModelConfig::Validate csrc/offline-tts-model-config.cc start");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsModelConfig::Validate csrc/offline-tts-model-config.cc start");
   if (num_threads < 1) {
     SHERPA_ONNX_LOGE("num_threads should be > 0. Given %d", num_threads);
     return false;
@@ -40,7 +40,7 @@ bool OfflineTtsModelConfig::Validate() const {
     return matcha.Validate();
   }
 
-  SHERPA_ONNX_LOGE(">>> OfflineTtsModelConfig::Validate csrc/offline-tts-model-config.cc end");
+  SHERPA_ONNX_LOGE(">>>> OfflineTtsModelConfig::Validate csrc/offline-tts-model-config.cc end");
   return kokoro.Validate();
 }
 

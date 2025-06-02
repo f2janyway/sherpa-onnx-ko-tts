@@ -283,24 +283,24 @@ class MainActivity : AppCompatActivity() {
 
         // Example 10
         // kokoro-multi-lang-v1_0
-         modelDir = "kokoro-multi-lang-v1_1"
-         modelName = "model.onnx"
-         voices = "voices.bin"
-         dataDir = "kokoro-multi-lang-v1_1/espeak-ng-data"
-         dictDir = "kokoro-multi-lang-v1_1/dict"
-         lexicon = "kokoro-multi-lang-v1_1/lexicon-us-en.txt,kokoro-multi-lang-v1_1/lexicon-zh.txt"
-         ruleFsts = "$modelDir/phone-zh.fst,$modelDir/date-zh.fst,$modelDir/number-zh.fst"
+//         modelDir = "kokoro-multi-lang-v1_1"
+//         modelName = "model.onnx"
+//         voices = "voices.bin"
+//         dataDir = "kokoro-multi-lang-v1_1/espeak-ng-data"
+//         dictDir = "kokoro-multi-lang-v1_1/dict"
+//         lexicon = "kokoro-multi-lang-v1_1/lexicon-us-en.txt,kokoro-multi-lang-v1_1/lexicon-zh.txt"
+//         ruleFsts = "$modelDir/phone-zh.fst,$modelDir/date-zh.fst,$modelDir/number-zh.fst"
 
 //        example 11
-        // modelName = "ko_KO-kss_low.onnx"
-        // modelDir = "vits-mimic3-ko_KO-kss_low"
+//         modelName = "ko_KO-kss_low.onnx"
+//         modelDir = "vits-mimic3-ko_KO-kss_low"
 //         dataDir = "vits-mimic3-ko_KO-kss_low/espeak-ng-data"
 
-        //modelDir = "melo"
-//        modelName = "model_korean1.onnx"
-//        lexicon = "lexicon_empty.txt"
-        //modelName = "melo_en_model.onnx"
-        //lexicon = "lexicon_en.txt"
+        modelDir = "melo"
+        modelName = "model_korean1.onnx"
+        lexicon = "lexicon.txt"
+//        modelName = "melo_en_model.onnx"
+//        lexicon = "lexicon_en.txt"
 //        dictDir = "melo/dict"
 
 
