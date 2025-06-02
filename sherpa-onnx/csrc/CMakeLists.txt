@@ -20,7 +20,9 @@ set(sources
   features.cc
   file-utils.cc
   fst-utils.cc
+  homophone-replacer.cc
   hypothesis.cc
+  jieba.cc
   keyword-spotter-impl.cc
   keyword-spotter.cc
   offline-ctc-fst-decoder-config.cc
@@ -48,6 +50,15 @@ set(sources
   offline-rnn-lm.cc
   offline-sense-voice-model-config.cc
   offline-sense-voice-model.cc
+
+  offline-source-separation-impl.cc
+  offline-source-separation-model-config.cc
+  offline-source-separation-spleeter-model-config.cc
+  offline-source-separation-spleeter-model.cc
+  offline-source-separation-uvr-model-config.cc
+  offline-source-separation-uvr-model.cc
+  offline-source-separation.cc
+
   offline-stream.cc
   offline-tdnn-ctc-model.cc
   offline-tdnn-model-config.cc
@@ -292,8 +303,8 @@ target_link_libraries(sherpa-onnx-core fstfar fst)
 
 if(SHERPA_ONNX_ENABLE_TTS)
   target_link_libraries(sherpa-onnx-core piper_phonemize)
-  target_link_libraries(sherpa-onnx-core cppjieba)
 endif()
+target_link_libraries(sherpa-onnx-core cppjieba)
 
 if(SHERPA_ONNX_ENABLE_CHECK)
   target_compile_definitions(sherpa-onnx-core PUBLIC SHERPA_ONNX_ENABLE_CHECK=1)
@@ -325,6 +336,7 @@ if(SHERPA_ONNX_ENABLE_BINARY)
   add_executable(sherpa-onnx-offline-language-identification sherpa-onnx-offline-language-identification.cc)
   add_executable(sherpa-onnx-offline-parallel sherpa-onnx-offline-parallel.cc)
   add_executable(sherpa-onnx-offline-punctuation sherpa-onnx-offline-punctuation.cc)
+  add_executable(sherpa-onnx-offline-source-separation sherpa-onnx-offline-source-separation.cc)
   add_executable(sherpa-onnx-online-punctuation sherpa-onnx-online-punctuation.cc)
   add_executable(sherpa-onnx-vad sherpa-onnx-vad.cc)
 
@@ -345,6 +357,7 @@ if(SHERPA_ONNX_ENABLE_BINARY)
     sherpa-onnx-offline-language-identification
     sherpa-onnx-offline-parallel
     sherpa-onnx-offline-punctuation
+    sherpa-onnx-offline-source-separation
     sherpa-onnx-online-punctuation
     sherpa-onnx-vad
   )

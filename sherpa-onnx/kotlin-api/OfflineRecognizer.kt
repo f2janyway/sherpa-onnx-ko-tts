@@ -78,6 +78,7 @@ data class OfflineRecognizerConfig(
     var featConfig: FeatureConfig = FeatureConfig(),
     var modelConfig: OfflineModelConfig = OfflineModelConfig(),
     // var lmConfig: OfflineLMConfig(), // TODO(fangjun): enable it
+    var hr: HomophoneReplacerConfig = HomophoneReplacerConfig(),
     var decodingMethod: String = "greedy_search",
     var maxActivePaths: Int = 4,
     var hotwordsFile: String = "",
@@ -543,6 +544,19 @@ fun getOfflineModelConfig(type: Int): OfflineModelConfig? {
                 ),
                 tokens = "$modelDir/tokens.txt",
                 modelType = "transducer",
+            )
+        }
+
+        30 -> {
+            val modelDir = "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
+            return OfflineModelConfig(
+                transducer = OfflineTransducerModelConfig(
+                    encoder = "$modelDir/encoder.int8.onnx",
+                    decoder = "$modelDir/decoder.int8.onnx",
+                    joiner = "$modelDir/joiner.int8.onnx",
+                ),
+                tokens = "$modelDir/tokens.txt",
+                modelType = "nemo_transducer",
             )
         }
     }

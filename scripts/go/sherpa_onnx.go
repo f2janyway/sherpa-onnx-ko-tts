@@ -41,8 +41,13 @@ package sherpa_onnx
 
 // #include <stdlib.h>
 // #include "c-api.h"
+// extern int32_t _cgoGeneratedAudioCallback(float *samples,int32_t n,void *arg);
+// extern int32_t _cgoGeneratedAudioProgressCallback(float *samples, int32_t n, float p, void *arg);
 import "C"
-import "unsafe"
+import (
+	"runtime/cgo"
+	"unsafe"
+)
 
 // Configuration for online/streaming transducer models
 //
@@ -108,6 +113,12 @@ type OnlineCtcFstDecoderConfig struct {
 	MaxActive int
 }
 
+type HomophoneReplacerConfig struct {
+	DictDir  string
+	Lexicon  string
+	RuleFsts string
+}
+
 // Configuration for the online/streaming recognizer.
 type OnlineRecognizerConfig struct {
 	FeatConfig  FeatureConfig
@@ -137,6 +148,7 @@ type OnlineRecognizerConfig struct {
 	RuleFars                string
 	HotwordsBuf             string
 	HotwordsBufSize         int
+	Hr                      HomophoneReplacerConfig
 }
 
 // It contains the recognition result for a online stream.
@@ -238,6 +250,15 @@ func NewOnlineRecognizer(config *OnlineRecognizerConfig) *OnlineRecognizer {
 	c.ctc_fst_decoder_config.graph = C.CString(config.CtcFstDecoderConfig.Graph)
 	defer C.free(unsafe.Pointer(c.ctc_fst_decoder_config.graph))
 	c.ctc_fst_decoder_config.max_active = C.int(config.CtcFstDecoderConfig.MaxActive)
+
+	c.hr.dict_dir = C.CString(config.Hr.DictDir)
+	defer C.free(unsafe.Pointer(c.hr.dict_dir))
+
+	c.hr.lexicon = C.CString(config.Hr.Lexicon)
+	defer C.free(unsafe.Pointer(c.hr.lexicon))
+
+	c.hr.rule_fsts = C.CString(config.Hr.RuleFsts)
+	defer C.free(unsafe.Pointer(c.hr.rule_fsts))
 
 	impl := C.SherpaOnnxCreateOnlineRecognizer(&c)
 	if impl == nil {
@@ -462,6 +483,7 @@ type OfflineRecognizerConfig struct {
 	BlankPenalty   float32
 	RuleFsts       string
 	RuleFars       string
+	Hr             HomophoneReplacerConfig
 }
 
 // It wraps a pointer from C
@@ -549,6 +571,10 @@ func newCOfflineRecognizerConfig(config *OfflineRecognizerConfig) *C.struct_Sher
 
 	c.rule_fsts = C.CString(config.RuleFsts)
 	c.rule_fars = C.CString(config.RuleFars)
+
+	c.hr.dict_dir = C.CString(config.Hr.DictDir)
+	c.hr.lexicon = C.CString(config.Hr.Lexicon)
+	c.hr.rule_fsts = C.CString(config.Hr.RuleFsts)
 	return &c
 }
 func freeCOfflineRecognizerConfig(c *C.struct_SherpaOnnxOfflineRecognizerConfig) {
@@ -676,9 +702,25 @@ func freeCOfflineRecognizerConfig(c *C.struct_SherpaOnnxOfflineRecognizerConfig)
 		C.free(unsafe.Pointer(c.rule_fsts))
 		c.rule_fsts = nil
 	}
+
 	if c.rule_fars != nil {
 		C.free(unsafe.Pointer(c.rule_fars))
 		c.rule_fars = nil
+	}
+
+	if c.hr.dict_dir != nil {
+		C.free(unsafe.Pointer(c.hr.dict_dir))
+		c.hr.dict_dir = nil
+	}
+
+	if c.hr.lexicon != nil {
+		C.free(unsafe.Pointer(c.hr.lexicon))
+		c.hr.lexicon = nil
+	}
+
+	if c.hr.rule_fsts != nil {
+		C.free(unsafe.Pointer(c.hr.rule_fsts))
+		c.hr.rule_fsts = nil
 	}
 }
 
@@ -853,6 +895,36 @@ type OfflineTts struct {
 	impl *C.struct_SherpaOnnxOfflineTts
 }
 
+type sherpaOnnxGeneratedAudioCallbackWithArg func(samples []float32)
+
+//export _cgoGeneratedAudioCallback
+func _cgoGeneratedAudioCallback(samples *C.float, n C.int32_t, arg unsafe.Pointer) C.int32_t {
+	h := *(*cgo.Handle)(arg)
+	val := h.Value().(sherpaOnnxGeneratedAudioCallbackWithArg)
+	all := make([]float32, n)
+	arr := unsafe.Slice(samples, n)
+	for i := 0; i < int(n); i++ {
+		all[i] = float32(arr[i])
+	}
+	val(all)
+	return 1
+}
+
+type sherpaOnnxGeneratedAudioProgressCallbackWithArg func(samples []float32, p float32)
+
+//export _cgoGeneratedAudioProgressCallback
+func _cgoGeneratedAudioProgressCallback(samples *C.float, n C.int32_t, p C.float, arg unsafe.Pointer) C.int32_t {
+	h := *(*cgo.Handle)(arg)
+	val := h.Value().(sherpaOnnxGeneratedAudioProgressCallbackWithArg)
+	all := make([]float32, n)
+	arr := unsafe.Slice(samples, n)
+	for i := 0; i < int(n); i++ {
+		all[i] = float32(arr[i])
+	}
+	val(all, float32(p))
+	return 1
+}
+
 // Free the internal pointer inside the tts to avoid memory leak.
 func DeleteOfflineTts(tts *OfflineTts) {
 	C.SherpaOnnxDestroyOfflineTts(tts.impl)
@@ -971,6 +1043,26 @@ func (tts *OfflineTts) Generate(text string, sid int, speed float32) *GeneratedA
 	}
 
 	return ans
+}
+
+func (tts *OfflineTts) GenerateWithCallback(text string, sid int, speed float32, cb sherpaOnnxGeneratedAudioCallbackWithArg) {
+	s := C.CString(text)
+	defer C.free(unsafe.Pointer(s))
+
+	h := cgo.NewHandle(cb)
+	defer h.Delete()
+	audio := C.SherpaOnnxOfflineTtsGenerateWithCallbackWithArg(tts.impl, s, C.int(sid), C.float(speed), C.SherpaOnnxGeneratedAudioCallbackWithArg(C._cgoGeneratedAudioCallback), unsafe.Pointer(&h))
+	defer C.SherpaOnnxDestroyOfflineTtsGeneratedAudio(audio)
+}
+
+func (tts *OfflineTts) GenerateWithProgressCallback(text string, sid int, speed float32, cb sherpaOnnxGeneratedAudioProgressCallbackWithArg) {
+	s := C.CString(text)
+	defer C.free(unsafe.Pointer(s))
+
+	h := cgo.NewHandle(cb)
+	defer h.Delete()
+	audio := C.SherpaOnnxOfflineTtsGenerateWithProgressCallbackWithArg(tts.impl, s, C.int(sid), C.float(speed), C.SherpaOnnxGeneratedAudioProgressCallbackWithArg(C._cgoGeneratedAudioProgressCallback), unsafe.Pointer(&h))
+	defer C.SherpaOnnxDestroyOfflineTtsGeneratedAudio(audio)
 }
 
 func (audio *GeneratedAudio) Save(filename string) bool {

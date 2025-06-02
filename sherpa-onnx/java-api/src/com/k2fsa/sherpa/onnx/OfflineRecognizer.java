@@ -3,18 +3,23 @@
 package com.k2fsa.sherpa.onnx;
 
 public class OfflineRecognizer {
-    static {
-        System.loadLibrary("sherpa-onnx-jni");
-    }
-
     private long ptr = 0;
 
     public OfflineRecognizer(OfflineRecognizerConfig config) {
+        LibraryLoader.maybeLoad();
         ptr = newFromFile(config);
     }
 
     public void decode(OfflineStream s) {
         decode(ptr, s.getPtr());
+    }
+
+    public void decode(OfflineStream[] ss) {
+        long[] streamPtrs = new long[ss.length];
+        for (int i = 0; i < ss.length; ++i) {
+            streamPtrs[i] = ss[i].getPtr();
+        }
+        decodeStreams(ptr, streamPtrs);
     }
 
     public OfflineStream createStream() {
@@ -54,6 +59,8 @@ public class OfflineRecognizer {
     private native long createStream(long ptr);
 
     private native void decode(long ptr, long streamPtr);
+
+    private native void decodeStreams(long ptr, long[] streamPtrs);
 
     private native Object[] getResult(long streamPtr);
 }

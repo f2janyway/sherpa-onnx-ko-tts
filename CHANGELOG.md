@@ -1,3 +1,62 @@
+## 1.12.0
+
+* Fix building wheels for macOS (#2192)
+* Show verbose logs in homophone replacer (#2194)
+* Fix displaying streaming speech recognition results for Python. (#2196)
+* Add real-time speech recognition example for SenseVoice. (#2197)
+* docs: add Open-XiaoAI KWS project (#2198)
+* Add C++ example for streaming ASR with SenseVoice. (#2199)
+* Add C++ example for real-time ASR with nvidia/parakeet-tdt-0.6b-v2. (#2201)
+* Add a link to YouTube video including sherpa-onnx. (#2202)
+* Support sending is_eof for online websocket server. (#2204)
+* Add alsa-based streaming ASR example for sense voice. (#2207)
+* Support homophone replacer in Android asr demo. (#2210)
+* Add Go implementation of the TTS generation callback (#2213)
+* Add Android demo for real-time ASR with non-streaming ASR models. (#2214)
+* Expose dither for JNI (#2215)
+* Add nodejs example for parakeet-tdt-0.6b-v2. (#2219)
+* Add script to build APK for simulated-streaming-asr. (#2220)
+
+
+## 1.11.5
+
+* export parakeet-tdt-0.6b-v2 to sherpa-onnx (#2180)
+* Add C++ runtime for parakeet-tdt-0.6b-v2. (#2181)
+* Avoid NaN in feature normalization. (#2186)
+
+## 1.11.4
+
+* Disable strict hotword matching mode for offline transducer (#1837)
+* Comment refinement: Add note about vocoder file for matcha TTS config (#2106)
+* Fix a typo in the JNI for Android. (#2108)
+* Generate subtitles with FireRedAsr models (#2112)
+* Use manylinux_2_28_x86_64 to build linux gpu for sherpa-onnx (#2123)
+* Support running sherpa-onnx with RK NPU on Android (#2124)
+* Fix building for HarmonyOS (#2125)
+* cmake build, configurable from env (#2115)
+* Expose dither in python API (#2127)
+* Add support for GigaAM-CTC-v2 (#2135)
+* Support Giga AM transducer V2 (#2136)
+* Export kokoro 1.0 int8 models (#2137)
+* Upload more onnx ASR models (#2141)
+* Fix building for open harmonyOS (#2142)
+* online-transducer: reset the encoder toghter with 2 previous output symbols (non-blank) (#2129)
+* Fix punctuations for kokoro tts 1.1-zh. (#2146)
+* Fix setting OnlineModelConfig in Java API (#2147)
+* Support decoding multiple streams in Java API. (#2149)
+* Support replacing homonphonic phrases (#2153)
+* Add C and CXX API for homophone replacer (#2156)
+* Add JavaScript API (WASM) for homophone replacer (#2157)
+* Add JavaScript API (node-addon) for homophone replacer (#2158)
+* Fix building without TTS (#2159)
+* Add homophone replacer example for Python API. (#2161)
+* More fix for building without tts (#2162)
+* Add Swift API for homophone replacer. (#2164)
+* Add C# API for homophone replacer (#2165)
+* Add Kotlin and Java API for homophone replacer (#2166)
+* Add Dart API for homophone replacer (#2167)
+* Add Go API for homophone replacer (#2168)
+
 ## 1.11.3
 
 * fix vits dict dir config (#2036)

@@ -1,8 +1,8 @@
 ### Supported functions
 
-|Speech recognition| Speech synthesis |
-|------------------|------------------|
-|   ✔️              |         ✔️        |
+|Speech recognition| Speech synthesis | Source separation |
+|------------------|------------------|-------------------|
+|   ✔️              |         ✔️        |       ✔️           |
 
 |Speaker identification| Speaker diarization | Speaker verification |
 |----------------------|-------------------- |------------------------|
@@ -15,6 +15,7 @@
 | Keyword spotting | Add punctuation | Speech enhancement |
 |------------------|-----------------|--------------------|
 |     ✔️            |       ✔️         |      ✔️             |
+
 
 ### Supported platforms
 
@@ -56,7 +57,9 @@ This repository supports running the following functions **locally**
   - Spoken language identification
   - Audio tagging
   - VAD (e.g., [silero-vad][silero-vad])
+  - Speech enhancement (e.g., [gtcrn][gtcrn])
   - Keyword spotting
+  - Source separation (e.g., [spleeter][spleeter], [UVR][UVR])
 
 on the following platforms and operating systems:
 
@@ -75,6 +78,7 @@ on the following platforms and operating systems:
   - [VisionFive 2][VisionFive 2]
   - [旭日X3派][旭日X3派]
   - [爱芯派][爱芯派]
+  - [RK3588][RK3588]
   - etc
 
 with the following APIs
@@ -200,6 +204,7 @@ We also have spaces built using WebAssembly. They are listed below:
 | Punctuation                                 | [Address][punct-models]                                                               |
 | Speaker segmentation                        | [Address][speaker-segmentation-models]                                                |
 | Speech enhancement                          | [Address][speech-enhancement-models]                                                  |
+| Source separation                           | [Address][source-separation-models]                                                  |
 
 </details>
 
@@ -340,6 +345,20 @@ Pure Python, GUI-focused home automation/consumer grade SCADA.
 
 It uses TTS from sherpa-onnx. See also [✨ Speak command that uses the new globally configured TTS model.](https://github.com/EternityForest/KaithemAutomation/commit/8e64d2b138725e426532f7d66bb69dd0b4f53693)
 
+### [Open-XiaoAI KWS](https://github.com/idootop/open-xiaoai-kws)
+
+Enable custom wake word for XiaoAi Speakers. 让小爱音箱支持自定义唤醒词。
+
+Video demo in Chinese: [小爱同学启动～˶╹ꇴ╹˶！](https://www.bilibili.com/video/BV1YfVUz5EMj)
+
+### [Making robot Paimon, Ep10 "The AI Part 1"](https://www.youtube.com/watch?v=KxPKkwxGWZs)
+
+It is a [YouTube video](https://www.youtube.com/watch?v=KxPKkwxGWZs),
+showing how the author tried to use AI so he can have a conversation with Paimon.
+
+It uses sherpa-onnx for speech-to-text and text-to-speech.
+![](https://private-user-images.githubusercontent.com/5284924/442579664-f6eea2d5-1807-42cb-9160-be8da2971e1f.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDcwMjI5NjIsIm5iZiI6MTc0NzAyMjY2MiwicGF0aCI6Ii81Mjg0OTI0LzQ0MjU3OTY2NC1mNmVlYTJkNS0xODA3LTQyY2ItOTE2MC1iZThkYTI5NzFlMWYucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI1MDUxMiUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTA1MTJUMDQwNDIyWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9ODAyMDllYjNmMGU0ZjNlODI3N2RkZjdiYjU2MmY4YzQwNGJjZjM4MGZmNjk0OWRmNmYzMjJhYWIzMDRiMWNiYSZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.WP-v8oKPqQ-s487-eUU2Z4quOfWbwDJQJok89NfkTf4)
+
 [sherpa-rs]: https://github.com/thewh1teagle/sherpa-rs
 [silero-vad]: https://github.com/snakers4/silero-vad
 [Raspberry Pi]: https://www.raspberrypi.com/
@@ -467,3 +486,8 @@ It uses TTS from sherpa-onnx. See also [✨ Speak command that uses the new glob
 [NVIDIA Jetson Orin NX]: https://developer.download.nvidia.com/assets/embedded/secure/jetson/orin_nx/docs/Jetson_Orin_NX_DS-10712-001_v0.5.pdf?RCPGu9Q6OVAOv7a7vgtwc9-BLScXRIWq6cSLuditMALECJ_dOj27DgnqAPGVnT2VpiNpQan9SyFy-9zRykR58CokzbXwjSA7Gj819e91AXPrWkGZR3oS1VLxiDEpJa_Y0lr7UT-N4GnXtb8NlUkP4GkCkkF_FQivGPrAucCUywL481GH_WpP_p7ziHU1Wg==&t=eyJscyI6ImdzZW8iLCJsc2QiOiJodHRwczovL3d3dy5nb29nbGUuY29tLmhrLyJ9
 [NVIDIA Jetson Nano B01]: https://www.seeedstudio.com/blog/2020/01/16/new-revision-of-jetson-nano-dev-kit-now-supports-new-jetson-nano-module/
 [speech-enhancement-models]: https://github.com/k2-fsa/sherpa-onnx/releases/tag/speech-enhancement-models
+[source-separation-models]: https://github.com/k2-fsa/sherpa-onnx/releases/tag/source-separation-models
+[RK3588]: https://www.rock-chips.com/uploads/pdf/2022.8.26/192/RK3588%20Brief%20Datasheet.pdf
+[spleeter]: https://github.com/deezer/spleeter
+[UVR]: https://github.com/Anjok07/ultimatevocalremovergui
+[gtcrn]: https://github.com/Xiaobin-Rong/gtcrn

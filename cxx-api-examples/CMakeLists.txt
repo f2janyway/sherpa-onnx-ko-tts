@@ -3,6 +3,9 @@ include_directories(${PROJECT_SOURCE_DIR})
 add_executable(streaming-zipformer-cxx-api ./streaming-zipformer-cxx-api.cc)
 target_link_libraries(streaming-zipformer-cxx-api sherpa-onnx-cxx-api)
 
+add_executable(streaming-zipformer-with-hr-cxx-api ./streaming-zipformer-with-hr-cxx-api.cc)
+target_link_libraries(streaming-zipformer-with-hr-cxx-api sherpa-onnx-cxx-api)
+
 add_executable(speech-enhancement-gtcrn-cxx-api ./speech-enhancement-gtcrn-cxx-api.cc)
 target_link_libraries(speech-enhancement-gtcrn-cxx-api sherpa-onnx-cxx-api)
 
@@ -23,6 +26,46 @@ target_link_libraries(moonshine-cxx-api sherpa-onnx-cxx-api)
 
 add_executable(sense-voice-cxx-api ./sense-voice-cxx-api.cc)
 target_link_libraries(sense-voice-cxx-api sherpa-onnx-cxx-api)
+
+if(SHERPA_ONNX_ENABLE_PORTAUDIO)
+  add_executable(sense-voice-simulate-streaming-microphone-cxx-api
+    ./sense-voice-simulate-streaming-microphone-cxx-api.cc
+    ${CMAKE_CURRENT_LIST_DIR}/../sherpa-onnx/csrc/microphone.cc
+  )
+  target_link_libraries(sense-voice-simulate-streaming-microphone-cxx-api
+    sherpa-onnx-cxx-api
+    portaudio_static
+  )
+
+  add_executable(parakeet-tdt-simulate-streaming-microphone-cxx-api
+    ./parakeet-tdt-simulate-streaming-microphone-cxx-api.cc
+    ${CMAKE_CURRENT_LIST_DIR}/../sherpa-onnx/csrc/microphone.cc
+  )
+  target_link_libraries(parakeet-tdt-simulate-streaming-microphone-cxx-api
+    sherpa-onnx-cxx-api
+    portaudio_static
+  )
+endif()
+
+if(SHERPA_ONNX_HAS_ALSA)
+  add_executable(sense-voice-simulate-streaming-alsa-cxx-api
+    ./sense-voice-simulate-streaming-alsa-cxx-api.cc
+    ${CMAKE_CURRENT_LIST_DIR}/../sherpa-onnx/csrc/alsa.cc
+  )
+  target_link_libraries(sense-voice-simulate-streaming-alsa-cxx-api
+    sherpa-onnx-cxx-api
+    portaudio_static
+  )
+
+  if(DEFINED ENV{SHERPA_ONNX_ALSA_LIB_DIR})
+    target_link_libraries(sense-voice-simulate-streaming-alsa-cxx-api -L$ENV{SHERPA_ONNX_ALSA_LIB_DIR} -lasound)
+  else()
+    target_link_libraries(sense-voice-simulate-streaming-alsa-cxx-api asound)
+  endif()
+endif()
+
+add_executable(sense-voice-with-hr-cxx-api ./sense-voice-with-hr-cxx-api.cc)
+target_link_libraries(sense-voice-with-hr-cxx-api sherpa-onnx-cxx-api)
 
 add_executable(dolphin-ctc-cxx-api ./dolphin-ctc-cxx-api.cc)
 target_link_libraries(dolphin-ctc-cxx-api sherpa-onnx-cxx-api)

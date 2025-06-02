@@ -5,6 +5,7 @@
 #include "sherpa-onnx/csrc/offline-tts.h"
 
 #include "sherpa-onnx/csrc/macros.h"
+#include "sherpa-onnx/csrc/text-utils.h"
 #include "sherpa-onnx/csrc/wave-writer.h"
 #include "sherpa-onnx/jni/common.h"
 
@@ -214,6 +215,10 @@ JNIEXPORT jlong JNICALL Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset(
   auto config = sherpa_onnx::GetOfflineTtsConfig(env, _config);
   SHERPA_ONNX_LOGE("config:\n%s", config.ToString().c_str());
   SHERPA_ONNX_LOGE(">>>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc config end");
+  auto str_vec = sherpa_onnx::SplitString(config.ToString(), 128);
+  for (const auto &s : str_vec) {
+    SHERPA_ONNX_LOGE("%s", s.c_str());
+  }
 
   SHERPA_ONNX_LOGE(">>>> Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromAsset jni/offline-tts.cc tts start");
   auto tts = new sherpa_onnx::OfflineTts(
@@ -244,7 +249,7 @@ JNIEXPORT jlong JNICALL Java_com_k2fsa_sherpa_onnx_OfflineTts_newFromFile(
         auto tts = new sherpa_onnx::OfflineTts(config);
         return reinterpret_cast<jlong>(tts);
       },
-      0L);
+      (jlong)0);
 }
 
 SHERPA_ONNX_EXTERN_C

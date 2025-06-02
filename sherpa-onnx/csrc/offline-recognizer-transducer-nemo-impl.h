@@ -128,6 +128,7 @@ class OfflineRecognizerTransducerNeMoImpl : public OfflineRecognizerImpl {
       auto r = Convert(results[i], symbol_table_, frame_shift_ms,
                        model_->SubsamplingFactor());
       r.text = ApplyInverseTextNormalization(std::move(r.text));
+      r.text = ApplyHomophoneReplacer(std::move(r.text));
 
       ss[i]->SetResult(r);
     }
@@ -137,6 +138,12 @@ class OfflineRecognizerTransducerNeMoImpl : public OfflineRecognizerImpl {
 
  private:
   void PostInit() {
+    int32_t feat_dim = model_->FeatureDim();
+
+    if (feat_dim > 0) {
+      config_.feat_config.feature_dim = feat_dim;
+    }
+
     config_.feat_config.nemo_normalize_type =
         model_->FeatureNormalizationMethod();
 
@@ -149,6 +156,12 @@ class OfflineRecognizerTransducerNeMoImpl : public OfflineRecognizerImpl {
       config_.feat_config.preemph_coeff = 0;
       config_.feat_config.window_type = "hann";
       config_.feat_config.feature_dim = 64;
+
+      // see
+      // https://github.com/salute-developers/GigaAM/blob/main/gigaam/preprocess.py#L68
+      //
+      // GigaAM uses n_fft 400
+      config_.feat_config.round_to_power_of_two = false;
     } else {
       config_.feat_config.low_freq = 0;
       // config_.feat_config.high_freq = 8000;

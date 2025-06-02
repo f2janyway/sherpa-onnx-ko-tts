@@ -5,6 +5,7 @@
 #include "sherpa-onnx/csrc/online-recognizer.h"
 
 #include "sherpa-onnx/csrc/macros.h"
+#include "sherpa-onnx/csrc/text-utils.h"
 #include "sherpa-onnx/jni/common.h"
 
 namespace sherpa_onnx {
@@ -63,6 +64,9 @@ static OnlineRecognizerConfig GetConfig(JNIEnv *env, jobject config) {
 
   fid = env->GetFieldID(feat_config_cls, "featureDim", "I");
   ans.feat_config.feature_dim = env->GetIntField(feat_config, fid);
+
+  fid = env->GetFieldID(feat_config_cls, "dither", "F");
+  ans.feat_config.dither = env->GetFloatField(feat_config, fid);
 
   //---------- enable endpoint ----------
   fid = env->GetFieldID(cls, "enableEndpoint", "Z");
@@ -253,6 +257,30 @@ static OnlineRecognizerConfig GetConfig(JNIEnv *env, jobject config) {
   ans.ctc_fst_decoder_config.max_active =
       env->GetIntField(fst_decoder_config, fid);
 
+  // homophone replacer config
+  fid = env->GetFieldID(cls, "hr",
+                        "Lcom/k2fsa/sherpa/onnx/HomophoneReplacerConfig;");
+  jobject hr_config = env->GetObjectField(config, fid);
+  jclass hr_config_cls = env->GetObjectClass(hr_config);
+
+  fid = env->GetFieldID(hr_config_cls, "dictDir", "Ljava/lang/String;");
+  s = (jstring)env->GetObjectField(hr_config, fid);
+  p = env->GetStringUTFChars(s, nullptr);
+  ans.hr.dict_dir = p;
+  env->ReleaseStringUTFChars(s, p);
+
+  fid = env->GetFieldID(hr_config_cls, "lexicon", "Ljava/lang/String;");
+  s = (jstring)env->GetObjectField(hr_config, fid);
+  p = env->GetStringUTFChars(s, nullptr);
+  ans.hr.lexicon = p;
+  env->ReleaseStringUTFChars(s, p);
+
+  fid = env->GetFieldID(hr_config_cls, "ruleFsts", "Ljava/lang/String;");
+  s = (jstring)env->GetObjectField(hr_config, fid);
+  p = env->GetStringUTFChars(s, nullptr);
+  ans.hr.rule_fsts = p;
+  env->ReleaseStringUTFChars(s, p);
+
   return ans;
 }
 }  // namespace sherpa_onnx
@@ -271,7 +299,10 @@ Java_com_k2fsa_sherpa_onnx_OnlineRecognizer_newFromAsset(JNIEnv *env,
   }
 #endif
   auto config = sherpa_onnx::GetConfig(env, _config);
-  SHERPA_ONNX_LOGE("config:\n%s", config.ToString().c_str());
+  auto str_vec = sherpa_onnx::SplitString(config.ToString(), 128);
+  for (const auto &s : str_vec) {
+    SHERPA_ONNX_LOGE("%s", s.c_str());
+  }
 
   auto recognizer = new sherpa_onnx::OnlineRecognizer(
 #if __ANDROID_API__ >= 9
@@ -286,7 +317,11 @@ SHERPA_ONNX_EXTERN_C
 JNIEXPORT jlong JNICALL Java_com_k2fsa_sherpa_onnx_OnlineRecognizer_newFromFile(
     JNIEnv *env, jobject /*obj*/, jobject _config) {
   auto config = sherpa_onnx::GetConfig(env, _config);
-  SHERPA_ONNX_LOGE("config:\n%s", config.ToString().c_str());
+
+  auto str_vec = sherpa_onnx::SplitString(config.ToString(), 128);
+  for (const auto &s : str_vec) {
+    SHERPA_ONNX_LOGE("%s", s.c_str());
+  }
 
   if (!config.Validate()) {
     SHERPA_ONNX_LOGE("Errors found in config!");
@@ -337,6 +372,22 @@ JNIEXPORT void JNICALL Java_com_k2fsa_sherpa_onnx_OnlineRecognizer_decode(
   auto stream = reinterpret_cast<sherpa_onnx::OnlineStream *>(stream_ptr);
 
   recognizer->DecodeStream(stream);
+}
+
+SHERPA_ONNX_EXTERN_C
+JNIEXPORT void JNICALL
+Java_com_k2fsa_sherpa_onnx_OnlineRecognizer_decodeStreams(
+    JNIEnv *env, jobject /*obj*/, jlong ptr, jlongArray stream_ptrs) {
+  auto recognizer = reinterpret_cast<sherpa_onnx::OnlineRecognizer *>(ptr);
+
+  jlong *p = env->GetLongArrayElements(stream_ptrs, nullptr);
+  jsize n = env->GetArrayLength(stream_ptrs);
+
+  auto ss = reinterpret_cast<sherpa_onnx::OnlineStream **>(p);
+
+  recognizer->DecodeStreams(ss, n);
+
+  env->ReleaseLongArrayElements(stream_ptrs, p, JNI_ABORT);
 }
 
 SHERPA_ONNX_EXTERN_C
