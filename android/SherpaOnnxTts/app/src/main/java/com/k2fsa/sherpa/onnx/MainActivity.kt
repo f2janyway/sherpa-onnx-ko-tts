@@ -299,7 +299,8 @@ class MainActivity : AppCompatActivity() {
 //         dataDir = "vits-mimic3-ko_KO-kss_low/espeak-ng-data"
 
         modelDir = "melo"
-        modelName = "model_korean1.onnx"
+//        modelName = "model_korean1.onnx"
+        modelName = "model_korean_ja_bert.onnx"
         lexicon = "lexicon.txt"
 //        modelName = "melo_en_model.onnx"
 //        lexicon = "lexicon_en.txt"

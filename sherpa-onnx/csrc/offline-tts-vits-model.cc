@@ -20,6 +20,8 @@
 
 #include "sherpa-onnx/csrc/file-utils.h"
 #include "sherpa-onnx/csrc/macros.h"
+#include "sherpa-onnx/csrc/melo-tts-ko-const.h"
+#include "sherpa-onnx/csrc/melo-tts-ko.h"
 #include "sherpa-onnx/csrc/onnx-utils.h"
 #include "sherpa-onnx/csrc/session.h"
 
@@ -72,6 +74,7 @@ class OfflineTtsVitsModel::Impl {
     SHERPA_ONNX_LOGE(
         ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
         "xshape");
+
     std::vector<int64_t> x_shape = x.GetTensorTypeAndShapeInfo().GetShape();
     if (x_shape[0] != 1) {
       SHERPA_ONNX_LOGE("Support only batch_size == 1. Given: %d",
@@ -81,7 +84,39 @@ class OfflineTtsVitsModel::Impl {
 
     int64_t len = x_shape[1];
     int64_t len_shape = 1;
+    // --- Start of added code for ja_bert ---
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "creating dummy ja_bert tensor len %d",
+        len);
 
+    // Define the shape for ja_bert
+    std::vector<int64_t> ja_bert_shape = {1, 768, len};
+
+    // Calculate the total number of elements
+    // size_t ja_bert_num_elements = 1 * 768 * len;
+
+    // Create a dummy float array for the tensor data
+    // You might want to initialize this with meaningful data if needed
+    // std::vector<float> dummy_ja_bert_data = ja_bert_vec;
+    // ReadJaBert(dummy_ja_bert_data);
+    for (int i = 0; i < 5; i++) {
+      SHERPA_ONNX_LOGE(
+          ">>>> OfflineTtsVitsModel::Impl::Run() "
+          "csrc/offline-tts-vits-model.cc dummy ja_bert data %f",
+          ja_bert_vec[i]);
+    }
+    SHERPA_ONNX_LOGE("DEBUG: ja_bert_vec actual size: %zu", ja_bert_vec.size());
+    assert(ja_bert_vec.size() == 768 * len);
+    // Create the Ort::Value for ja_bert
+    Ort::Value ja_bert_tensor = Ort::Value::CreateTensor<float>(
+        memory_info, ja_bert_vec.data(), ja_bert_vec.size(),
+        ja_bert_shape.data(), ja_bert_shape.size());
+
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "dummy ja_bert tensor created");
+    // --- End of added code for ja_bert ---
     Ort::Value x_length =
         Ort::Value::CreateTensor(memory_info, &len, 1, &len_shape, 1);
 
@@ -107,15 +142,16 @@ class OfflineTtsVitsModel::Impl {
         Ort::Value::CreateTensor(memory_info, &sid, 1, &scale_shape, 1);
 
     std::vector<Ort::Value> inputs;
-    inputs.reserve(7);
+    // inputs.reserve(7);
+    inputs.reserve(8);
     inputs.push_back(std::move(x));
     inputs.push_back(std::move(x_length));
     inputs.push_back(std::move(tones));
     inputs.push_back(std::move(sid_tensor));
-    inputs.push_back(std::move(noise_scale_tensor));
-    inputs.push_back(std::move(length_scale_tensor));
-    inputs.push_back(std::move(noise_scale_w_tensor));
-
+    inputs.push_back(std::move(noise_scale_tensor));    // Reordered
+    inputs.push_back(std::move(length_scale_tensor));   // Reordered
+    inputs.push_back(std::move(noise_scale_w_tensor));  // Reordered
+    inputs.push_back(std::move(ja_bert_tensor));
     SHERPA_ONNX_LOGE(
         ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
         "sess_->Run() start");

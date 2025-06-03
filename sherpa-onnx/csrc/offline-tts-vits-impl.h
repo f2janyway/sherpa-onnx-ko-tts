@@ -519,7 +519,7 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     }
     SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x.size() %d",
                      x.size());
-    for (int i = 0; i < x.size(); i++) {
+    for (int i = 0; i < 10; i++) {
       SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x[%d] %d", i,
                        x[i]);
     }
@@ -534,7 +534,7 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list.size() %d",
                      tone_list.size());
 
-    for (int i = 0; i < tone_list.size(); i++) {
+    for (int i = 0; i < 10; i++) {
       SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list[%d] %d",
                        i, tone_list[i]);
     }
