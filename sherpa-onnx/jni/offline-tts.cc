@@ -34,6 +34,10 @@ static OfflineTtsConfig GetOfflineTtsConfig(JNIEnv *env, jobject config) {
   const char *p = env->GetStringUTFChars(s, nullptr);
   ans.model.vits.model = p;
   env->ReleaseStringUTFChars(s, p);
+  
+
+
+
 
   fid = env->GetFieldID(vits_cls, "lexicon", "Ljava/lang/String;");
   s = (jstring)env->GetObjectField(vits, fid);
@@ -57,6 +61,19 @@ static OfflineTtsConfig GetOfflineTtsConfig(JNIEnv *env, jobject config) {
   s = (jstring)env->GetObjectField(vits, fid);
   p = env->GetStringUTFChars(s, nullptr);
   ans.model.vits.dict_dir = p;
+  env->ReleaseStringUTFChars(s, p);
+
+    //ja_bert_model
+  fid = env->GetFieldID(vits_cls, "jaBertModel", "Ljava/lang/String;");
+  s = (jstring)env->GetObjectField(vits, fid);
+  p = env->GetStringUTFChars(s, nullptr);
+  ans.model.vits.ja_bert_model = p;
+  env->ReleaseStringUTFChars(s, p);
+  //vocab
+  fid = env->GetFieldID(vits_cls, "vocab", "Ljava/lang/String;");
+  s = (jstring)env->GetObjectField(vits, fid);
+  p = env->GetStringUTFChars(s, nullptr);
+  ans.model.vits.vocab = p;
   env->ReleaseStringUTFChars(s, p);
 
   fid = env->GetFieldID(vits_cls, "noiseScale", "F");

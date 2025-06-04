@@ -111,7 +111,9 @@ std::string OfflineTtsVitsModelConfig::ToString() const {
   os << "dict_dir=\"" << dict_dir << "\", ";
   os << "noise_scale=" << noise_scale << ", ";
   os << "noise_scale_w=" << noise_scale_w << ", ";
-  os << "length_scale=" << length_scale << ")";
+  os << "length_scale=" << length_scale  << ", ";
+  os << "ja_bert_model=" << ja_bert_model << ", ";
+  os << "vocab=" << vocab  << ")";
 
   return os.str();
 }

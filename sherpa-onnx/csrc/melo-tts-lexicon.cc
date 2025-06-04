@@ -24,18 +24,15 @@
 #include <string>
 #include <vector>
 
-#include <iostream>
-#include <stdexcept>  // std::out_of_range 사용을 위해 포함
-#include <string>
-#include <vector>
-
 #include "sherpa-onnx/csrc/file-utils.h"
 #include "sherpa-onnx/csrc/jieba.h"
 #include "sherpa-onnx/csrc/macros.h"
+#include "sherpa-onnx/csrc/melo-tts-ko-tokenizer.h"
 #include "sherpa-onnx/csrc/melo-tts-ko.h"
 #include "sherpa-onnx/csrc/onnx-utils.h"
 #include "sherpa-onnx/csrc/symbol-table.h"
 #include "sherpa-onnx/csrc/text-utils.h"
+
 const std::vector<std::string> CHOSUNG = {
     "ᄀ", "ᄁ", "ᄂ", "ᄃ", "ᄄ", "ᄅ", "ᄆ", "ᄇ", "ᄈ", "ᄉ",
     "ᄊ", "ᄋ", "ᄌ", "ᄍ", "ᄎ", "ᄏ", "ᄐ", "ᄑ", "ᄒ",
@@ -260,6 +257,35 @@ class MeloTtsLexicon::Impl {
     {
       auto buf = ReadFile(mgr, tokens);
 
+      std::istrstream is(buf.data(), buf.size());
+      InitTokens(is);
+    }
+
+    {
+      auto buf = ReadFile(mgr, lexicon);
+
+      std::istrstream is(buf.data(), buf.size());
+      InitLexicon(is);
+    }
+  }
+  template <typename Manager>
+  Impl(Manager *mgr, const std::string &lexicon, const std::string &tokens,
+       const std::string &ja_bert_model_path, const std::string &vocab_path,
+       const OfflineTtsVitsModelMetaData &meta_data, bool debug) {
+    {
+      auto buf = ReadFile(mgr, tokens);
+      ja_bert_model_path_ = ja_bert_model_path;
+      // vocab_path_ = vocab_path;
+      SHERPA_ONNX_LOGE(
+          ">>>>> MeloTtsLexicon::Impl::Impl ja_bert_model_path_ %s",
+          ja_bert_model_path_.c_str());
+      SHERPA_ONNX_LOGE(">>>>> MeloTtsLexicon::Impl::Impl vocab_path_ %s",
+                       vocab_path.c_str());
+      auto vocab_buf = ReadFile(mgr, vocab_path);
+      std::istrstream is_v(vocab_buf.data(), vocab_buf.size());
+      InitTokenizer(is_v);
+
+      // currently dont used this init tokens but just hardcoded tokens
       std::istrstream is(buf.data(), buf.size());
       InitTokens(is);
     }
@@ -683,6 +709,18 @@ class MeloTtsLexicon::Impl {
   }
 
  private:
+  void InitTokenizer(std::istream &is) {
+    // SHERPA_ONNX_LOGE(">>>> InitTokenizer vocab_path: %s", vocab_path.c_str());
+    tokenizer_kor_ = std::make_unique<WordPieceTokenizer>(is, true);
+    // if (debug_) {
+      auto tokens = tokenizer_kor_->tokenize("안녕하세요 좋은 아침입니다.");
+      for (const auto &t : tokens) {
+        SHERPA_ONNX_LOGE(">>>> InitTokenizer tokenizer test %s", t.c_str());
+      }
+      // SHERPA_ONNX_LOGE(">>>> InitTokenizer tokenizer test %s",
+      // vocab_path.c_str());
+    // }
+  }
   TokenIDs ConvertWordToIds(const std::string &w) const {
     if (word2ids_.count(w)) {
       return word2ids_.at(w);
@@ -838,6 +876,10 @@ class MeloTtsLexicon::Impl {
   OfflineTtsVitsModelMetaData meta_data_;
 
   std::unique_ptr<cppjieba::Jieba> jieba_;
+
+  std::string ja_bert_model_path_;
+  std::unique_ptr<WordPieceTokenizer> tokenizer_kor_;
+  // std::string vocab_path_;
   bool debug_ = false;
 };
 
@@ -873,6 +915,16 @@ MeloTtsLexicon::MeloTtsLexicon(Manager *mgr, const std::string &lexicon,
                                bool debug)
     : impl_(std::make_unique<Impl>(mgr, lexicon, tokens, meta_data, debug)) {}
 
+template <typename Manager>
+MeloTtsLexicon::MeloTtsLexicon(Manager *mgr, const std::string &lexicon,
+                               const std::string &tokens,
+                               const std::string &ja_bert_model_path,
+                               const std::string &vocab_path,
+                               const OfflineTtsVitsModelMetaData &meta_data,
+                               bool debug)
+    : impl_(std::make_unique<Impl>(mgr, lexicon, tokens, ja_bert_model_path,
+                                   vocab_path, meta_data, debug)) {}
+
 std::vector<TokenIDs> MeloTtsLexicon::ConvertTextToTokenIds(
     const std::string &text, const std::string & /*unused_voice = ""*/) const {
   // return impl_->ConvertKoreanTextToTokenIds(text);
@@ -888,6 +940,11 @@ template MeloTtsLexicon::MeloTtsLexicon(
 
 template MeloTtsLexicon::MeloTtsLexicon(
     AAssetManager *mgr, const std::string &lexicon, const std::string &tokens,
+    const OfflineTtsVitsModelMetaData &meta_data, bool debug);
+
+template MeloTtsLexicon::MeloTtsLexicon(
+    AAssetManager *mgr, const std::string &lexicon, const std::string &tokens,
+    const std::string &ja_bert_model_path, const std::string &vocab_path,
     const OfflineTtsVitsModelMetaData &meta_data, bool debug);
 #endif
 

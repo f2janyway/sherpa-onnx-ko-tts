@@ -34,6 +34,13 @@ class MeloTtsLexicon : public OfflineTtsFrontend {
                  const std::string &tokens,
                  const OfflineTtsVitsModelMetaData &meta_data, bool debug);
 
+  template <typename Manager>
+  MeloTtsLexicon(Manager *mgr, const std::string &lexicon,
+                 const std::string &tokens, 
+                 const std::string &ja_bert_model_path,
+                 const std::string &vocab_path,
+                 const OfflineTtsVitsModelMetaData &meta_data, bool debug);
+
   std::vector<TokenIDs> ConvertTextToTokenIds(
       const std::string &text,
       const std::string &unused_voice = "") const override;

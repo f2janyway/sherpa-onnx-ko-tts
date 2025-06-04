@@ -187,6 +187,7 @@ if(SHERPA_ONNX_ENABLE_TTS)
     melo-tts-lexicon.cc
           melo-tts-ko.cc
           melo-tts-ko-const.cc
+          melo-tts-ko-tokenizer.cc
     offline-tts-character-frontend.cc
     offline-tts-frontend.cc
     offline-tts-impl.cc

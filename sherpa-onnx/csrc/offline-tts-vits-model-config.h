@@ -27,6 +27,10 @@ struct OfflineTtsVitsModelConfig {
   float noise_scale_w = 0.8;
   float length_scale = 1;
 
+  // korean for tokenizer & ja_bert
+  std::string ja_bert_model;
+  std::string vocab;
+
   // used only for multi-speaker models, e.g, vctk speech dataset.
   // Not applicable for single-speaker models, e.g., ljspeech dataset
 
@@ -37,8 +41,12 @@ struct OfflineTtsVitsModelConfig {
                             const std::string &tokens,
                             const std::string &data_dir,
                             const std::string &dict_dir,
-                            float noise_scale = 0.667,
-                            float noise_scale_w = 0.8, float length_scale = 1)
+                            const std::string &ja_bert_model,
+                            const std::string &vocab,
+                             float noise_scale = 0.667,
+                            float noise_scale_w = 0.8, float length_scale = 1
+
+                            )
       : model(model),
         lexicon(lexicon),
         tokens(tokens),
@@ -46,7 +54,9 @@ struct OfflineTtsVitsModelConfig {
         dict_dir(dict_dir),
         noise_scale(noise_scale),
         noise_scale_w(noise_scale_w),
-        length_scale(length_scale) {}
+        length_scale(length_scale),
+        ja_bert_model(ja_bert_model),
+        vocab(vocab) {}
 
   void Register(ParseOptions *po);
   bool Validate() const;

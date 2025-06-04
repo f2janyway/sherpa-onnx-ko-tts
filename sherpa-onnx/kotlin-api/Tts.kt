@@ -8,12 +8,16 @@ data class OfflineTtsVitsModelConfig(
     var model: String = "",
     var lexicon: String = "",
     var tokens: String = "",
-     var dataDir: String = "", // 이 필드는 필요 없을 수도 있습니다.
+    var dataDir: String = "", // 이 필드는 필요 없을 수도 있습니다.
     var dictDir: String = "", // <-- MeCab 사전 디렉토리 경로 추가
 //    var bertModelPath: String = "", // <-- BERT ONNX 모델 경로 추가
+
+
     var noiseScale: Float = 0.667f,
     var noiseScaleW: Float = 0.8f,
     var lengthScale: Float = 1.0f,
+    var jaBertModel:String = "",
+    var vocab:String = "",
 )
 data class OfflineTtsMatchaModelConfig(
     var acousticModel: String = "",
@@ -196,7 +200,9 @@ fun getOfflineTtsConfig(
     dictDir: String,
     ruleFsts: String,
     ruleFars: String,
-    numThreads: Int? = null
+    numThreads: Int? = null,
+    vocab:String, // for VITS
+    jaBertModel: String // for VITS
 ): OfflineTtsConfig {
     // For Matcha TTS, please set
     // acousticModelName, vocoder
@@ -241,6 +247,8 @@ fun getOfflineTtsConfig(
 
             dataDir = dataDir,
             dictDir = dictDir,
+            jaBertModel = "$modelDir/$jaBertModel",
+            vocab = "$modelDir/$vocab"
         )
     } else {
         OfflineTtsVitsModelConfig()
