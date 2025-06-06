@@ -212,8 +212,11 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
       }
     }
 
+    /// ConvertTextToTokenIdsKorean
     std::vector<TokenIDs> token_ids =
         frontend_->ConvertTextToTokenIds(text, meta_data.voice);
+
+    std::vector<float> ja_bert_vec = token_ids[0].ja_bert_vec;
 
     if (token_ids.empty() ||
         (token_ids.size() == 1 && token_ids[0].tokens.empty())) {
@@ -225,10 +228,11 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     std::vector<std::vector<int64_t>> tones;
 
     x.reserve(token_ids.size());
-
+    SHERPA_ONNX_LOGE("this from ConvertTextToTokenIdsKorean ; tokens.size(): %zu", token_ids[0].tokens.size());
     for (auto &i : token_ids) {
       x.push_back(std::move(i.tokens));
     }
+    SHERPA_ONNX_LOGE(">>>>> 0 x.size(): %zu", x.size());
 
     if (!token_ids[0].tones.empty()) {
       tones.reserve(token_ids.size());
@@ -247,13 +251,18 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
       for (auto &k : tones) {
         k = AddBlank(k);
       }
+      // 여기서 블랭크 추가 해줘야함 word2ph 각 항목 * 2 해줘야함, 맨 앞에 +1
+      // 이걸 기준으로 ja_bert_vec 또한 해줘야함 
+      /// melo-tts-lexicon.cc ConvertTextToTokenIdsKorean 에서 미리 처리함
+      
     }
+    SHERPA_ONNX_LOGE(">>>>> 1 x.size(): %zu", x.size());
 
     int32_t x_size = static_cast<int32_t>(x.size());
 
     if (config_.max_num_sentences <= 0 || x_size <= config_.max_num_sentences) {
       SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits create 0");
-      auto ans = Process(x, tones, sid, speed);
+      auto ans = Process(text, ja_bert_vec, x, tones, sid, speed);
       SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits created 0");
       if (callback) {
         SHERPA_ONNX_LOGE(
@@ -505,11 +514,147 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     }
   }
 
+  GeneratedAudio Process(const std::string &text,
+                          std::vector<float> &ja_bert_vec,
+                         const std::vector<std::vector<int64_t>> &tokens,
+                         const std::vector<std::vector<int64_t>> &tones,
+                         int32_t sid, float speed) const {
+    SHERPA_ONNX_LOGE(" >>> text Process offline-tts-vits-impl.h start");
+
+    int32_t num_tokens = 0;
+    for (const auto &k : tokens) {
+      num_tokens += k.size();
+    }
+    SHERPA_ONNX_LOGE(" >>>text Process offline-tts-vits-impl.h num_tokens %d",
+                     num_tokens);
+
+    std::vector<int64_t> x;
+    x.reserve(num_tokens);
+    for (const auto &k : tokens) {
+      x.insert(x.end(), k.begin(), k.end());
+    }
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x.size() %d",
+                     x.size());
+    for (int i = 0; i < 10; i++) {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x[%d] %d", i,
+                       x[i]);
+    }
+
+    std::vector<int64_t> tone_list;
+    if (!tones.empty()) {
+      tone_list.reserve(num_tokens);
+      for (const auto &k : tones) {
+        tone_list.insert(tone_list.end(), k.begin(), k.end());
+      }
+    }
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list.size() %d",
+                     tone_list.size());
+
+    // for (int i = 0; i < 10; i++) {
+    //   SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list[%d] %d",
+    //                    i, tone_list[i]);
+    // }
+    // SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h sid %d", sid);
+    // SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h speed %f", speed);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h memory_info  start");
+    auto memory_info =
+        Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h memory_info end ");
+
+    std::array<int64_t, 2> x_shape = {1, static_cast<int32_t>(x.size())};
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x_shape[0] %d",
+                     x_shape[0]);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x_shape[1] %d",
+                     x_shape[1]);
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h x.size() %d",
+                     x.size());
+    Ort::Value x_tensor = Ort::Value::CreateTensor(
+        memory_info, x.data(), x.size(), x_shape.data(), x_shape.size());
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h "
+        "x_tensor.GetTensorTypeAndShapeInfo().GetShape()[0] %d",
+        x_tensor.GetTensorTypeAndShapeInfo().GetShape()[0]);
+
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h "
+        "x_tensor.GetTensorTypeAndShapeInfo().GetShape()[1] %d",
+        x_tensor.GetTensorTypeAndShapeInfo().GetShape()[1]);
+    Ort::Value tones_tensor{nullptr};
+    if (!tones.empty()) {
+      tones_tensor = Ort::Value::CreateTensor(memory_info, tone_list.data(),
+                                              tone_list.size(), x_shape.data(),
+                                              x_shape.size());
+      SHERPA_ONNX_LOGE(
+          " >>> Process offline-tts-vits-impl.h "
+          "tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[0] %d",
+          tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[0]);
+      SHERPA_ONNX_LOGE(
+          " >>> Process offline-tts-vits-impl.h "
+          "tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[1] %d",
+          tones_tensor.GetTensorTypeAndShapeInfo().GetShape()[1]);
+    }
+
+    Ort::Value audio{nullptr};
+    if (tones.empty()) {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h no tones");
+      audio = model_->Run(std::move(x_tensor), sid, speed);
+    } else {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h has tones");
+      // audio =
+      //     model_->Run(std::move(x_tensor), std::move(tones_tensor), sid,
+      //     speed);
+      SHERPA_ONNX_LOGE(">>>> Process offline-tts-vits-impl.h has tones ja_bert_vec.size() %d", ja_bert_vec.size());
+      audio = model_->Run(text, ja_bert_vec, std::move(x_tensor),
+                          std::move(tones_tensor), sid, speed);
+    }
+
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h "
+        "audio.GetTensorTypeAndShapeInfo().GetShape()[0] %d",
+        audio.GetTensorTypeAndShapeInfo().GetShape()[0]);
+
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h "
+        "audio.GetTensorTypeAndShapeInfo().GetShape()[1] %d",
+        audio.GetTensorTypeAndShapeInfo().GetShape()[1]);
+    std::vector<int64_t> audio_shape =
+        audio.GetTensorTypeAndShapeInfo().GetShape();
+
+    int64_t total = 1;
+    // The output shape may be (1, 1, total) or (1, total) or (total,)
+    for (auto i : audio_shape) {
+      total *= i;
+    }
+
+    const float *p = audio.GetTensorData<float>();
+
+    GeneratedAudio ans;
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h total %d", total);
+    ans.sample_rate = model_->GetMetaData().sample_rate;
+    ans.samples = std::vector<float>(p, p + total);
+    SHERPA_ONNX_LOGE(
+        " >>> Process offline-tts-vits-impl.h ans.samples.size() %d",
+        ans.samples.size());
+
+    float silence_scale = config_.silence_scale;
+    if (silence_scale != 1) {
+      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h silence_scale %f",
+                       silence_scale);
+      ans = ans.ScaleSilence(silence_scale);
+      SHERPA_ONNX_LOGE(
+          " >>> Process offline-tts-vits-impl.h ans.samples.size() %d",
+          ans.samples.size());
+    }
+
+    SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h end ");
+
+    return ans;
+  }
   GeneratedAudio Process(const std::vector<std::vector<int64_t>> &tokens,
                          const std::vector<std::vector<int64_t>> &tones,
                          int32_t sid, float speed) const {
     SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h start");
-    
+
     int32_t num_tokens = 0;
     for (const auto &k : tokens) {
       num_tokens += k.size();
@@ -539,10 +684,10 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list.size() %d",
                      tone_list.size());
 
-    for (int i = 0; i < 10; i++) {
-      SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list[%d] %d",
-                       i, tone_list[i]);
-    }
+    // for (int i = 0; i < 10; i++) {
+    //   SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h tone_list[%d] %d",
+    //                    i, tone_list[i]);
+    // }
     SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h sid %d", sid);
     SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h speed %f", speed);
     SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h memory_info  start");
@@ -591,6 +736,8 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
       SHERPA_ONNX_LOGE(" >>> Process offline-tts-vits-impl.h has tones");
       audio =
           model_->Run(std::move(x_tensor), std::move(tones_tensor), sid, speed);
+      // audio = model_->Run(text,std::move(x_tensor), std::move(tones_tensor),
+      // sid, speed,frontend_.get());
     }
 
     SHERPA_ONNX_LOGE(
@@ -636,11 +783,12 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
     return ans;
   }
 
+  std::unique_ptr<OfflineTtsFrontend> frontend_;
+
  private:
   OfflineTtsConfig config_;
   std::unique_ptr<OfflineTtsVitsModel> model_;
   std::vector<std::unique_ptr<kaldifst::TextNormalizer>> tn_list_;
-  std::unique_ptr<OfflineTtsFrontend> frontend_;
 };
 
 }  // namespace sherpa_onnx

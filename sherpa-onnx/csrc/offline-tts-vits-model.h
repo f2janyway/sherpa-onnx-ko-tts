@@ -11,6 +11,7 @@
 #include "onnxruntime_cxx_api.h"  // NOLINT
 #include "sherpa-onnx/csrc/offline-tts-model-config.h"
 #include "sherpa-onnx/csrc/offline-tts-vits-model-meta-data.h"
+#include "sherpa-onnx/csrc/offline-tts-frontend.h"
 
 namespace sherpa_onnx {
 
@@ -38,6 +39,12 @@ class OfflineTtsVitsModel {
   // This is for MeloTTS
   Ort::Value Run(Ort::Value x, Ort::Value tones, int64_t sid = 0,
                  float speed = 1.0) const;
+
+  Ort::Value Run(const std::string& text,std::vector<float> &ja_bert_vec, Ort::Value x, Ort::Value tones,
+                   int64_t sid, float speed
+                   );
+                    // <--- Add this parameter
+    // OR if you want to pass it as a specific type:
 
   const OfflineTtsVitsModelMetaData &GetMetaData() const;
 

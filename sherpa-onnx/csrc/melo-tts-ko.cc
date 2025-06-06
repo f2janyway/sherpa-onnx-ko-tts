@@ -10,6 +10,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <set>
+#include "melo-tts-ko-tokenizer.h"
+#include "melo-tts-ko.h"
 
 using namespace std;
 
@@ -771,12 +774,14 @@ std::unordered_map<wchar_t, int> jamo_to_id = {
 };
 
 // Hangul 분해된 자모 → 숫자 인덱스로 변환
-vector<int64_t> convert_to_jamo_ids(const wstring &input) {
+vector<int64_t> convert_to_jamo_ids(const wstring &input,bool isFullSentence = false) {
   vector<wchar_t> decomposed = decompose_hangul(input);
   vector<int64_t> result;
 
   // 문장 시작을 위한 padding
+  if(isFullSentence) {
   result.push_back(0);  // '_' == 0
+  }
 
   for (wchar_t jamo : decomposed) {
     auto it = jamo_to_id.find(jamo);
@@ -788,8 +793,11 @@ vector<int64_t> convert_to_jamo_ids(const wstring &input) {
     }
   }
 
+  if(isFullSentence) {
+    result.push_back(0);  // '_' == 0
+  }
   // 문장 끝 padding
-  result.push_back(0);  // '_' == 0
+  // result.push_back(0);  // '_' == 0
 
   return result;
 }
@@ -828,6 +836,16 @@ std::vector<std::int64_t> CreateToneKo(size_t desired_size) {
   }
   return result_vec;
 }
+void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+    if (from.empty())
+        return;
+    size_t start_pos = 0;
+    while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length(); // 교체된 문자열의 길이만큼 다음 검색 시작 위치 이동
+    }
+}
+
 vector<string> split(string str, char Delimiter) {
     istringstream iss(str);             // istringstream에 str을 담는다.
     string buffer;                      // 구분자를 기준으로 절삭된 문자열이 담겨지는 버퍼
@@ -850,7 +868,71 @@ vector<wstring> split(const wstring &str, wchar_t delimiter) {
   }
   return result;
 }
-std::vector<int64_t> TextToPhoneId(const std::string &_text) {
+
+// std::vector<int64_t> TokensToPhoneId(const std::vector<std::string> &tokens){
+//   if(table.empty()){
+//     table = parse_table_csv_hardcoded();
+//   }
+//   SHERPA_ONNX_LOGE(">>> TokensToPhoneId table size: %lu", table.size());
+//  vector<string> out_applied_rules;
+//   for(auto token : tokens){
+//     // SHERPA_ONNX_LOGE(">>> TokensToPhoneId token: %s", token.c_str());
+//     replaceAll(token, "#", "");
+//      std::wstring text = utf8_to_wstring(token); 
+//      std::vector<wchar_t> jamos = decompose_hangul(text);
+//      std::wstring result(jamos.begin(), jamos.end());
+//      std::string out = apply_rules(wstring_to_utf8(result));
+//      out_applied_rules.push_back(out);
+
+//   }
+//     // 규칙 적용 (jyeo_wstring 포함)
+//   std::wstring rs;
+//   // std::int8_t idx = 0;
+//   for (auto &out : out_applied_rules) {
+//     rs += compose_hangul(utf8_to_wstring(out));
+//   }
+//   std::vector<int64_t> phone_ids = convert_to_jamo_ids(rs);
+//   SHERPA_ONNX_LOGE(">>> TokensToPhoneId phone_ids size: %lu", phone_ids.size());
+//   return phone_ids;
+// }
+std::string TextToPhone(const std::string& _text) {
+    std::wstring text = utf8_to_wstring(_text);
+
+    // 한글 분해
+    std::vector<wchar_t> jamos = decompose_hangul(text);
+    std::wstring result(jamos.begin(), jamos.end());
+    vector<wstring> tokens = split(result, ' ');
+
+    vector<string> out_applied_rules;
+    for (auto& token : tokens) {
+        string out = apply_rules(wstring_to_utf8(token));
+        out_applied_rules.push_back(out);
+    }
+    // 규칙 적용 (jyeo_wstring 포함)
+    std::wstring rs;
+    std::vector<int8_t> word2ph;
+    // std::int8_t idx = 0;
+    std::wstring temp;
+    std::wstring temp_str;
+    for (auto& out : out_applied_rules) {
+        temp = utf8_to_wstring(out);
+        temp_str = compose_hangul(temp);
+        std::cout << "temp_str.size" << temp_str.size() << endl;
+        word2ph.push_back(temp_str.size());
+        rs += temp_str;
+        std::wcout << L"out: " << temp << wstring_to_utf8(temp_str).size() << std::endl;
+        // if (idx == 0) {
+        // } else {
+        //     rs += L" " + compose_hangul(utf8_to_wstring(out));
+        // }
+        // idx++;
+    }
+
+
+    std::wcout << L"rs: " << rs << std::endl;
+    return wstring_to_utf8(rs);
+}
+std::vector<int64_t> TextToPhoneId(const std::string &_text, bool isFullSentence) {
   if (table.empty()) {
     // table = parse_table_csv("table.csv");
     table = parse_table_csv_hardcoded();
@@ -893,7 +975,7 @@ std::vector<int64_t> TextToPhoneId(const std::string &_text) {
   SHERPA_ONNX_LOGE(">>> TextToPhoneId apply compose_hangle result");
 
   // 자모 ID로 변환
-  std::vector<int64_t> phoneme_ids = convert_to_jamo_ids(rs);
+  std::vector<int64_t> phoneme_ids = convert_to_jamo_ids(rs, isFullSentence);
   SHERPA_ONNX_LOGE(">>> TextToPhoneId convert_to_jamo_ids");
   //   std::vector<int64_t> tone_ids(phoneme_ids.size(), 0);  // 톤 ID 기본값 0
 
@@ -931,76 +1013,201 @@ std::vector<int64_t> TextToPhoneId(const std::string &_text) {
 //     // return ja_bert_vec;
 
 // }
-int main() {
-  std::locale::global(std::locale("ko_KR.UTF-8"));  // 한글 출력 가능하도록 설정
-  //    std::locale::global(std::locale("")); // 한글 출력 가능하도록 설정
-  std::wcout.imbue(std::locale());
-  table = parse_table_csv("table.csv");
-  std::vector<wstring> test_cases = {
-      L"밟아",
-      L"않았다",
-      L"굳이",
-  };
 
-  // for (const auto& input : test_cases) {
-  //     wcout << L"입력: " << input << endl;
-  //     print_unicode(input);
-  //     vector<wchar_t> jamos = decompose_hangul(input);
-  //     wstring result(jamos.begin(), jamos.end());
-  //     wcout << L"분해 결과: " << result << endl;
-  //     print_unicode(result);
-  //     wcout << L"적용 규칙: " << endl;
-  //     wcout << L"결과: " <<
-  //     compose_hangul(utf8_to_wstring(apply_rules(wstring_to_utf8(result))))
-  //     << endl; wcout << endl;
-  // }
-  // for (const auto& input : test_cases) {
-  //     wcout << L"입력: " << input << endl;
-  //     print_unicode(input);
-  //     vector<wchar_t> jamos = decompose_hangul(input);
-  //     wstring result(jamos.begin(), jamos.end());
-  //     wcout << L"분해 결과: " << result << endl;
-  //     print_unicode(result);
-  //     wcout << L"적용 규칙: " << endl;
-  //     wcout << L"결과: " <<
-  //     compose_hangul(utf8_to_wstring(apply_rules(wstring_to_utf8(result))))
-  //     << endl; wcout << endl;
-  // 며
 
-  // wstring text = L"하늘에 계신 우리아버지여 이름이 거룩히 여김을 받으시오며
-  // 이름이 거룩히 여김을 받으시며 나라이 임하옵시며 뜻이 하늘에서 이룬것 같이
-  // 땅에서도 이루어지이다. 오늘날 우리에게 일용할 양식을 주옵시고 우리가
-  // 우리에게 죄지은 자를 사하여 준것 같이 우리 죄를 사하여 주옵시고 우리를
-  // 시험에 들지 말게 하옵시고 다만 악에서 구하옵소서 대게 나라와 권세와 영광이
-  // 아버지께 영원히 있사옵나이다. 아멘 ";
-  // // wstring text = L"받으시오며";
 
-  // wcout << L"입력: " << text << endl;
-  // print_unicode(text);
-  // vector<wchar_t> jamos = decompose_hangul(text);
-  // wstring result(jamos.begin(), jamos.end());
-  // // wcout << L"분해 결과: " << result << endl;
-  // print_unicode(result);
-  // wcout << L"적용 규칙: " << endl;
-  // wcout << L"결과: " <<
-  // compose_hangul(utf8_to_wstring(apply_rules(wstring_to_utf8(result)))) <<
-  // endl; wcout << endl;
-  wstring text = L"받으시오며";
-  vector<wchar_t> jamos = decompose_hangul(text);
-  wstring result(jamos.begin(), jamos.end());
-  wstring rs =
-      compose_hangul(utf8_to_wstring(apply_rules(wstring_to_utf8(result))));
-  for (wchar_t j : rs) {
-    wcout << j << " ";  // 받으...
-  }
-  wcout << endl;
-  // wstring result(jamos.begin(), jamos.end());
+// Structure to hold the return values of g2pk
 
-  vector<int64_t> v = convert_to_jamo_ids(rs);
-  for (auto i : v) {
-    wcout << i << " ";
-  }
-  wcout << endl;
+std::vector<int> distribute_phone(int n_phone, int n_word) {
+    std::vector<int> phones_per_word(n_word, 0); // Initialize with n_word zeros
 
-  return 0;
+    for (int task = 0; task < n_phone; ++task) {
+        // Find the minimum value in phones_per_word
+        auto min_it = std::min_element(phones_per_word.begin(), phones_per_word.end());
+        // Get the index of the first occurrence of the minimum value
+        int min_index = std::distance(phones_per_word.begin(), min_it);
+        phones_per_word[min_index]++;
+    }
+    return phones_per_word;
 }
+std::vector<std::string> convert_wchar_vector_to_string_vector(const std::vector<wchar_t>& wchars) {
+    std::vector<std::string> strings;
+
+    // std::wstring_convert와 std::codecvt_utf8를 사용하여 wchar_t를 UTF-8 string으로 변환
+    // C++17에서 deprecated 되었지만, 여전히 유용하게 사용됩니다.
+    // 실제 배포 코드에서는 이 부분의 안정성 또는 대체 방법을 고려할 수 있습니다.
+    std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+
+    for (wchar_t wc : wchars) {
+        // 단일 wchar_t를 std::wstring으로 만든 후, converter를 사용하여 UTF-8 std::string으로 변환
+        std::wstring ws(1, wc); // 단일 wchar_t를 포함하는 wstring 생성
+        strings.push_back(converter.to_bytes(ws));
+    }
+
+    return strings;
+}
+const std::set<std::string> punctuation = { ".", ",", "!", "?", "[UNK]" };
+// Your existing C++ g2pk function
+G2PResult g2pk(const std::string& norm_text, WordPieceTokenizer& tokenizer) {
+    std::vector<std::string> tokenized = tokenizer.tokenize(norm_text);
+    std::cout << "korean.py g2pk tokenized: ";
+    for (const auto& t : tokenized) {
+        std::cout << t << " ";
+    }
+    std::cout << std::endl;
+
+    std::vector<std::string> phs;
+    std::vector<std::vector<std::string>> ph_groups;
+
+    for (const auto& t : tokenized) {
+        if (!t.empty() && t[0] != '#') {
+            ph_groups.push_back({ t });
+        }
+        else if (!ph_groups.empty()) {
+            std::string cleaned_t = t;
+            if (!cleaned_t.empty() && cleaned_t[0] == '#' && cleaned_t.size() > 2) {
+                cleaned_t.erase(0, 2);
+            }
+            ph_groups.back().push_back(cleaned_t);
+        }
+    }
+
+    std::vector<int> word2ph_local;
+    std::vector<int> ph_ids;
+
+    for (const auto& group : ph_groups) {
+        std::string text = "";
+        for (const auto& ch : group) {
+            text += ch;
+        }
+
+        if (text == "[UNK]") {
+            phs.push_back("_");
+            word2ph_local.push_back(1);
+            continue;
+        }
+        else if (punctuation.count(text)) {
+            phs.push_back(text);
+            word2ph_local.push_back(1);
+            continue;
+        }
+
+        std::string phonemes_ = TextToPhone(text); // This should return space-separated phonemes
+        SHERPA_ONNX_LOGE("---------- after textToPhone: %s\n text: %s", phonemes_.c_str(),text.c_str());
+        auto ph_ids_ = TextToPhoneId(phonemes_,false);
+        SHERPA_ONNX_LOGE("ph_ids");
+        std::ostringstream oss;
+        oss << "ph_ids: ";
+        for (auto p : ph_ids_) {
+            oss << p << ",";
+        }
+        // cout << "--------- " << endl;
+        SHERPA_ONNX_LOGE("%s",oss.str().c_str());
+
+        ph_ids.insert(ph_ids.end(), ph_ids_.begin(), ph_ids_.end());
+        //  textToPhoneId(text);
+
+        std::vector<wchar_t> phonemes_w = decompose_hangul(utf8_to_wstring(phonemes_));
+        std::vector<std::string> phonemes = convert_wchar_vector_to_string_vector(phonemes_w);
+        std::ostringstream oss2;
+        oss2 << "phonemes: ";
+        for (auto p : phonemes) {
+            oss2 << p << ",";
+        }
+        SHERPA_ONNX_LOGE("%s",oss2.str().c_str());
+        SHERPA_ONNX_LOGE("phonemes.size(): %d", phonemes.size());
+        // cout << "phonemes.size(): " << phonemes.size() << endl;
+
+        // cout << endl;
+
+        // Example: textToPhone("대통령") should return "d ae t o ng n yeo ng"
+        // If it returns "대통녕", then `split` will only give one element.
+
+        // std::vector<std::string> phonemes = split(phonemes_str, ' ');
+
+        // --- Crucial Check and Correction ---
+        // If `phonemes_str` was "대통녕" and `split` gives `{"대통녕"}` (size 1)
+        // BUT you *expect* 8 phonemes for "대통령"
+        // YOU MUST ensure `phonemes` vector contains 8 distinct phoneme strings.
+        // This likely means your `textToPhone` or `split` is not yielding individual phonemes.
+
+        // If for some reason `phonemes` still ends up empty (e.g., textToPhone returns empty string)
+        if (phonemes.empty()) {
+            std::cerr << "WARNING: No phonemes generated for text: \"" << text << "\". Treating as unknown." << std::endl;
+            phs.push_back("_"); // Fallback phoneme
+            word2ph_local.push_back(1); // Assign 1 phoneme to the token
+            continue; // Skip to next group
+        }
+        // --- End Crucial Check ---
+
+        int phone_len = phonemes.size();
+        int word_len = group.size(); // Number of WordPiece tokens for this combined text
+
+        // Debug prints to verify `phone_len` and `word_len`
+        SHERPA_ONNX_LOGE("Processing group: ");
+        std::ostringstream oss3;
+        for (const auto& t : group){
+          oss3 << t << " ";
+        } 
+        oss3 << " (combined text: \"" << text << "\")" << std::endl;
+        oss3 << "  Expected phonemes count (phone_len): " << phone_len << std::endl;
+        oss3 << "  WordPiece tokens in group (word_len): " << word_len << std::endl;
+        SHERPA_ONNX_LOGE("%s",oss3.str().c_str());
+
+
+        std::vector<int> aaa = distribute_phone(phone_len, word_len);
+
+        if (aaa.size() != word_len) {
+            // std::cerr << "Assertion failed: distribute_phone result size mismatch for group: ";
+            SHERPA_ONNX_LOGE("Assertion failed: distribute_phone result size mismatch for group: ");
+            std::ostringstream oss4;
+            for (const auto& t : group) {
+              oss4 << t << " ";
+            }
+            oss4 << " (expected " << word_len << ", got " << aaa.size() << ")" << std::endl;
+            // std::cerr << " (expected " << word_len << ", got " << aaa.size() << ")" << std::endl;
+            SHERPA_ONNX_LOGE("%s",oss4.str().c_str());
+            // Handle this error robustly if it happens (e.g., throw exception)
+        }
+        word2ph_local.insert(word2ph_local.end(), aaa.begin(), aaa.end());
+
+        phs.insert(phs.end(), phonemes.begin(), phonemes.end());
+    }
+
+    std::vector<std::string> phones_final = { "_" };
+    phones_final.insert(phones_final.end(), phs.begin(), phs.end());
+    phones_final.push_back("_");
+
+    std::vector<int64_t> tones_final(phones_final.size(), 0);
+
+    std::vector<int64_t> word2ph_final = { 1 };
+    word2ph_final.insert(word2ph_final.end(), word2ph_local.begin(), word2ph_local.end());
+    word2ph_final.push_back(1);
+
+    std::vector<int64_t> ph_ids_final = { 0 };
+    ph_ids_final.insert(ph_ids_final.end(), ph_ids.begin(), ph_ids.end());
+    ph_ids_final.push_back(0);
+    // ph_ids.push_back(0);
+
+    if (word2ph_final.size() != tokenized.size() + 2) {
+        // std::cerr << "Assertion failed: final word2ph size mismatch! (expected " << tokenized.size() + 2 << ", got " << word2ph_final.size() << ")" << std::endl;
+        SHERPA_ONNX_LOGE("Assertion failed: final word2ph size mismatch! (expected %d, got %d)", tokenized.size() + 2, word2ph_final.size());
+        // This indicates a problem in the overall logic of `ph_groups` or `word2ph_local` accumulation.
+        // It implies `word2ph_local.size()` is not equal to `tokenized.size()`.
+        // This can happen if `ph_groups` doesn't correctly capture all `tokenized` elements.
+    }
+
+    // G2PResult result;
+    // result.phones = phones_final;
+    // result.tones = tones_final;
+    // result.word2ph = word2ph_final;
+    // result.phone_ids = ph_ids;
+
+    SHERPA_ONNX_LOGE("phones_final.size(): %d", phones_final.size());
+    SHERPA_ONNX_LOGE("tones_final.size(): %d", tones_final.size());
+    SHERPA_ONNX_LOGE("word2ph_final.size(): %d", word2ph_final.size());
+    SHERPA_ONNX_LOGE("ph_ids_final.size(): %d", ph_ids_final.size());
+    // return G2PResult{ phones_final, tones_final, word2ph_final };
+    return G2PResult{ phones_final,ph_ids_final, tones_final, word2ph_final };
+}
+

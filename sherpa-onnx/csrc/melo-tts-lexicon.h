@@ -44,6 +44,8 @@ class MeloTtsLexicon : public OfflineTtsFrontend {
   std::vector<TokenIDs> ConvertTextToTokenIds(
       const std::string &text,
       const std::string &unused_voice = "") const override;
+  
+  // std::vector<float> GetJaBert(const std::string &text) const override;
 
  private:
   class Impl;

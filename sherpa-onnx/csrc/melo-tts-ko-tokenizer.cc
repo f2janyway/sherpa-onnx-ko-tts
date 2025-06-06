@@ -38,7 +38,16 @@ void WordPieceTokenizer::load_vocab(std::istream &vocab_file) {
   while (std::getline(vocab_file, line)) {
     vocab[line] = index++;
   }
-  SHERPA_ONNX_LOGE(">>>> WordPieceTokenizer::load_vocab end");
+  SHERPA_ONNX_LOGE(">>>> WordPieceTokenizer::load_vocab end vocab size: %d,%d", vocab.size(), index);
+  // for(int i = 0; i < 10; i++) {
+  char * vocab_key0 = "릱";
+  SHERPA_ONNX_LOGE(">>>> WordPieceTokenizer::load_vocab vocab at %s : %d", vocab_key0, vocab[vocab_key0]);
+  char * vocab_key1 = "릿";
+  SHERPA_ONNX_LOGE(">>>> WordPieceTokenizer::load_vocab vocab at %s : %d", vocab_key1, vocab[vocab_key1]);
+  char * vocab_key2 = "##조개";
+  SHERPA_ONNX_LOGE(">>>> WordPieceTokenizer::load_vocab vocab at %s : %d", vocab_key2, vocab[vocab_key2]);
+
+  // }
 }
 
 std::vector<std::string> WordPieceTokenizer::basic_tokenize(
@@ -61,7 +70,7 @@ std::vector<std::string> WordPieceTokenizer::basic_tokenize(
 
 std::vector<std::string> WordPieceTokenizer::wordpiece_tokenize(
     const std::string &token) {
-        SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::wordpiece_tokenize start token: ");
+        // SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::wordpiece_tokenize start token: ");
   std::vector<std::string> output;
   int start = 0;
   const int len = (int)token.size();
@@ -90,10 +99,13 @@ std::vector<std::string> WordPieceTokenizer::wordpiece_tokenize(
     }
 
     output.push_back(curr_substr);
+  
     start = end;
   }
-
-  SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::wordpiece_tokenize end");
+  // for(int i = 0; i < 3; i++){
+  //     SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::wordpiece_tokenize output at %d : %s :",i, output[i].c_str());
+  //   }
+  // SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::wordpiece_tokenize end");
   return output;
 }
 

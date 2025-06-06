@@ -299,11 +299,11 @@ class MainActivity : AppCompatActivity() {
 //         dataDir = "vits-mimic3-ko_KO-kss_low/espeak-ng-data"
 
         modelDir = "melo"
-        modelName = "model_korean1.onnx"
+        modelName = "tts_model_korean.onnx"
 //        modelName = "model_korean_ja_bert.onnx"
         lexicon = "lexicon.txt"
         var vocab = "vocab.txt"
-        var ja_bert_model = "model_korean_ja_bert.onnx"
+        var ja_bert_model = "korean_ja_bert_model_3_1.onnx"
 //        modelName = "melo_en_model.onnx"
 //        lexicon = "lexicon_en.txt"
 //        dictDir = "melo/dict"

@@ -30,6 +30,7 @@ class JiebaLexicon : public OfflineTtsFrontend {
       const std::string &text,
       const std::string &unused_voice = "") const override;
 
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;

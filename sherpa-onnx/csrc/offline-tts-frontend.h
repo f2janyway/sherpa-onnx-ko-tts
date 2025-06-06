@@ -13,6 +13,10 @@
 
 namespace sherpa_onnx {
 
+/// @brief
+/// @param tokens std::vector<int64_t> token_ids
+/// @param tones std::vector<int64_t> korean 11 or 0?
+/// @param ja_bert_vec std::vector<float>
 struct TokenIDs {
   TokenIDs() = default;
 
@@ -21,10 +25,17 @@ struct TokenIDs {
 
   /*implicit*/ TokenIDs(const std::vector<int32_t> &tokens)  // NOLINT
       : tokens{tokens.begin(), tokens.end()} {}
-
   TokenIDs(std::vector<int64_t> tokens,  // NOLINT
-           std::vector<int64_t> tones)   // NOLINT
-      : tokens{std::move(tokens)}, tones{std::move(tones)} {}
+           std::vector<int64_t> tones
+        )   // NOLINT
+      : tokens{std::move(tokens)}, tones{std::move(tones)}
+       {}
+  TokenIDs(std::vector<int64_t> tokens,  // NOLINT
+           std::vector<int64_t> tones,
+           std::vector<float> ja_bert_vec)  // NOLINT
+      : tokens{std::move(tokens)},
+        tones{std::move(tones)},
+        ja_bert_vec{std::move(ja_bert_vec)} {}
 
   std::string ToString() const;
 
@@ -32,6 +43,8 @@ struct TokenIDs {
 
   // Used only in MeloTTS
   std::vector<int64_t> tones;
+
+  std::vector<float> ja_bert_vec;
 };
 
 class OfflineTtsFrontend {
@@ -52,6 +65,16 @@ class OfflineTtsFrontend {
    */
   virtual std::vector<TokenIDs> ConvertTextToTokenIds(
       const std::string &text, const std::string &voice = "") const = 0;
+
+  // virtual std::vector<float> GetJaBert(const std::string &text) const {
+  //   // 기본 구현: 지원하지 않음을 나타내기 위해 비어있는 벡터를 반환하거나,
+  //   // 오류 로그를 남기고 빈 벡터를 반환합니다.
+  //   SHERPA_ONNX_LOGE("GetJaBert is not supported by this frontend type.");
+  //   // std::cerr << "Warning: GetJaBert is not supported by this frontend type.
+  //   // Returning empty vector." << std::endl;
+  //   return {};  // 비어있는 벡터 반환
+  // }
+  // --- 변경된 부분 끝 ---
 };
 
 // implementation is in ./piper-phonemize-lexicon.cc

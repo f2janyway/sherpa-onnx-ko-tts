@@ -274,13 +274,12 @@ class MeloTtsLexicon::Impl {
        const OfflineTtsVitsModelMetaData &meta_data, bool debug) {
     {
       auto buf = ReadFile(mgr, tokens);
-      ja_bert_model_path_ = ja_bert_model_path;
+      // ja_bert_model_path_ = ja_bert_model_path;
       // vocab_path_ = vocab_path;
       SHERPA_ONNX_LOGE(
-          ">>>>> MeloTtsLexicon::Impl::Impl ja_bert_model_path_ %s",
-          ja_bert_model_path_.c_str());
-      SHERPA_ONNX_LOGE(">>>>> MeloTtsLexicon::Impl::Impl vocab_path_ %s",
-                       vocab_path.c_str());
+          ">>>>> MeloTtsLexicon::Impl::Impl vocab_path_ %s,ja_bert_model_path_ "
+          "%s",
+          vocab_path.c_str(), ja_bert_model_path.c_str());
       auto vocab_buf = ReadFile(mgr, vocab_path);
       std::istrstream is_v(vocab_buf.data(), vocab_buf.size());
       InitTokenizer(is_v);
@@ -296,25 +295,243 @@ class MeloTtsLexicon::Impl {
       std::istrstream is(buf.data(), buf.size());
       InitLexicon(is);
     }
+
+    {
+      auto buf = ReadFile(mgr, ja_bert_model_path);
+      // std::istrstream is();
+      InitJaBert(buf.data(), buf.size());
+    }
   }
 
   // --- 자모 분리 로직 ---
 
-  std::vector<TokenIDs> ConvertKoreanTextToTokenIds(
+  std::vector<TokenIDs> ConvertTextToTokenIdsKorean(
       const std::string &_text) const {
-    SHERPA_ONNX_LOGE("ConvertKoreanTextToTokenIds called with text: %s",
+    SHERPA_ONNX_LOGE("ConvertTextToTokenIdsKorean called with text: %s",
                      _text.c_str());
 
-    std::vector<std::int64_t> phoneIds = TextToPhoneId(_text);
+    // std::vector<std::int64_t> phoneIds = TextToPhoneId(_text);
+    std::vector<float> ja_bert_vec = GetJaBert(_text);
+    // std::vector<float> ja_bert_vec_final;
+    SHERPA_ONNX_LOGE(
+        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc start g2pk");
+    G2PResult g2p_result = g2pk(_text, *tokenizer_kor_);
+    SHERPA_ONNX_LOGE(
+        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc end g2pk");
 
-    SHERPA_ONNX_LOGE("phoneIds size: %zu", phoneIds.size());
+    std::vector<std::int64_t> phoneIds = g2p_result.phone_ids;
+    std::vector<std::int64_t> word2ph = g2p_result.word2ph;
+    std::vector<std::string> phones = g2p_result.phones;
+    {
+      SHERPA_ONNX_LOGE(">>>> ConvertTextToTokenIdsKorean G2pResult");
+      // size
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean G2pResult phoneIds size: %zu, "
+          "phones size: %zu",
+          phoneIds.size(), phones.size());
+      std::ostringstream phone_stream;
+      int idx = 0;
+      for (auto count : word2ph) {
+        for (int i = 0; i < count; i++) {
+          phone_stream << phoneIds[idx + i] << ",";
+        }
+        idx += count;
+        phone_stream << "\n";
+      }
+      phone_stream << "\n";
+      SHERPA_ONNX_LOGE("%s", phone_stream.str().c_str());
+      std::ostringstream ph_stream;
+      idx = 0;
+      for (auto count : word2ph) {
+        for (int i = 0; i < count; i++) {
+          ph_stream << phones[idx + i] << ",";
+        }
+        idx += count;
+        ph_stream << "\n";
+      }
+      ph_stream << "\n";
+
+      SHERPA_ONNX_LOGE("%s", ph_stream.str().c_str());
+      std::ostringstream word2ph_stream;
+      for (auto e : word2ph) {
+        word2ph_stream << e << ",";
+      }
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean G2pResult word2ph 0 :%s",
+          word2ph_stream.str().c_str());
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean G2pResult word2ph size: %zu",
+          word2ph.size());
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean G2pResult ja_bert_vec size: %zu",
+          ja_bert_vec.size());
+    }
+
+    /// 여기선 미리 해준다!!!! ja_bert_vec
+    // ADDBland 효과!!!!!!!
+    for (size_t i = 0; i < word2ph.size(); ++i) {
+      word2ph[i] = word2ph[i] * 2;
+      // Python의 print(word2ph)와 동일하게 매 반복마다 출력
+      std::cout << "word2ph (in loop): [";
+      for (size_t j = 0; j < word2ph.size(); ++j) {
+        std::cout << word2ph[j] << (j == word2ph.size() - 1 ? "" : ", ");
+      }
+      std::cout << "]" << std::endl;
+    }
+
+    // word2ph[0] += 1
+    if (!word2ph.empty()) {  // 벡터가 비어있지 않은지 확인
+      word2ph[0] += 1;
+    }
+
+    ///////////////////////////////////
+    ///////////////////////////////////
+    //
+    /// @file offline-tts-vits-impl.h
+    ///  Generate
+    //  여기가 아닌 [addBlank하고 맞춰야함!!!!!]
+    //
+    // if hps.data.add_blank:
+    //     phone = commons.intersperse(phone, 0) << 0을 시작서부터 사이 사이에
+    //     추가 tone = commons.intersperse(tone, 0) language =
+    //     commons.intersperse(language, 0) for i in range(len(word2ph)):
+    //         word2ph[i] = word2ph[i] * 2 << 각 항목 * 2
+    //     word2ph[0] += 1 <<  맨 첫 번째 항목에 1 추가
+
+    // 파이선에서는 이 코드를 지나고 ja_bert를 구해서
+    // bert_model
+    //     res = model(**inputs, output_hidden_states=True)
+    //     res = torch.cat(res["hidden_states"][-3:-2], -1)[0].cpu()
+    //     print("japanese_bert.py get_bert_feature res1", res.shape)
+    //     <<hidden_state[0].shape torch.Size([1, 9, 768]) #
+    //     print("japanese_bert.py get_bert_feature res1", res)
+    //     print("japanese_bert.py get_bert_feature word2ph", word2ph)
+    //     print("japanese_bert.py get_bert_feature inputs[input_ids].shape",
+    //     inputs["input_ids"].shape) print("japanese_bert.py get_bert_feature
+    //     inputs[input_ids].shape[-1]", inputs["input_ids"].shape[-1])
+
+    /////////////////////////////////////
+    // logs
+    // hidden_state.size 13
+    // japanese_bert.py get_bert_feature res1 torch.Size([9, 768])
+    // japanese_bert.py get_bert_feature word2ph [3, 14, 16, 8, 6, 12, 6, 6, 2]
+    // << 각 항목 * 2, 맨 첫 번째 항목에 1 추가 japanese_bert.py
+    // get_bert_feature inputs[input_ids].shape torch.Size([1, 9])
+    // japanese_bert.py get_bert_feature inputs[input_ids].shape[-1] 9
+    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+    // element.shape: torch.Size([3, 768]) japanese_bert.py get_bert_feature
+    // phone_level_feature  cnt: 0 element.shape: torch.Size([14, 768])
+    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+    // element.shape: torch.Size([16, 768]) japanese_bert.py get_bert_feature
+    // phone_level_feature  cnt: 0 element.shape: torch.Size([8, 768])
+    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+    // element.shape: torch.Size([6, 768]) japanese_bert.py get_bert_feature
+    // phone_level_feature  cnt: 0 element.shape: torch.Size([12, 768])
+    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+    // element.shape: torch.Size([6, 768]) japanese_bert.py get_bert_feature
+    // phone_level_feature  cnt: 0 element.shape: torch.Size([6, 768])
+    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+    // element.shape: torch.Size([2, 768])
+    ////////////////////////////////
+
+    // assert inputs["input_ids"].shape[-1] == len(word2ph),
+    // f"{inputs['input_ids'].shape[-1]}/{len(word2ph)}" word2phone = word2ph
+    // phone_level_feature = []
+    // for i in range(len(word2phone)):
+    //     repeat_feature = res[i].repeat(word2phone[i], 1)
+    //     # print("japanese_bert.py get_bert_feature repeat_feature",
+    //     repeat_feature) phone_level_feature.append(repeat_feature) #
+    //     print("japanese_bert.py get_bert_feature phone_level_feature",
+    //     phone_level_feature)
+
+    // cnt = 0
+    // for i in phone_level_feature:
+    //     print("japanese_bert.py get_bert_feature phone_level_feature","
+    //     cnt:",cnt,"element.shape:", i.shape)
+    // phone_level_feature = torch.cat(phone_level_feature, dim=0)
+    // print("japanese_bert.py get_bert_feature phone_level_feature 1",
+    // phone_level_feature, phone_level_feature.shape)
+    ////////////////////////////////////// torch.Size([73, 768])
+
+    // return phone_level_feature.T
+    //
+    /////////////////////////////////
+    /////////////////////////////////
+    std::vector<float> ja_bert_vec_final;
+    int token_idx = 0;
+    const int ja_bert_vec_size = 768;
+    std::ostringstream word2ph_stream;
+    for (auto e : word2ph) {
+      word2ph_stream << e << ",";
+      // word2ph 값이 1인 경우 해당 토큰은 건너뜁니다.
+      // 하지만 ja_bert_vec_input에서 다음 토큰 위치로 이동하기 위해 token_idx는
+      // 증가해야 합니다.
+      // if (e == 1) {
+      //   token_idx++;
+      //   continue;
+      // }
+
+      // ja_bert_vec_input에서 현재 토큰 벡터의 시작 위치를 계산합니다.
+      int start_idx_in_input = token_idx * ja_bert_vec_size;
+
+      // ja_bert_vec_input의 끝을 벗어나지 않도록 범위 체크
+      if (start_idx_in_input + ja_bert_vec_size > ja_bert_vec.size()) {
+        // std::cerr << "Error: Out of bounds access for ja_bert_vec_input at
+        // token_idx " << token_idx << std::endl; SHERPA_ONNX_LOGE("Error: Out
+        // of bounds access for ja_bert_vec_input at token_idx " << token_idx);
+        SHERPA_ONNX_LOGE(
+            ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_size: %zu",
+            ja_bert_vec_size);
+        SHERPA_ONNX_LOGE(
+            ">>>> ConvertTextToTokenIdsKorean ja_bert_vec.size(): %zu",
+            ja_bert_vec.size());
+        SHERPA_ONNX_LOGE(
+            ">>>> ConvertTextToTokenIdsKorean Error: Out of bounds access for "
+            "ja_bert_vec_input at token_idx %zu",
+            token_idx);
+        break;  // 또는 적절한 오류 처리
+      }
+
+      // 현재 토큰에 해당하는 벡터의 시작과 끝 이터레이터를 가져옵니다.
+      auto it_begin = ja_bert_vec.begin() + start_idx_in_input;
+      auto it_end = ja_bert_vec.begin() + start_idx_in_input + ja_bert_vec_size;
+
+      // 'e'번 반복하여 ja_bert_vec_final에 벡터를 통째로 추가합니다.
+      for (int i = 0; i < e; i++) {
+        ja_bert_vec_final.insert(ja_bert_vec_final.end(), it_begin, it_end);
+        // SHERPA_ONNX_LOGE(
+        //     ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size:
+        //     %zu,tokenIdx: %d", ja_bert_vec_final.size(),token_idx);
+      }
+      token_idx++;
+    }
+    SHERPA_ONNX_LOGE(">>>> word2ph addblanks sequence: %s",
+                     word2ph_stream.str().c_str());
+    SHERPA_ONNX_LOGE(
+        ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size: %zu",
+        ja_bert_vec_final.size());
+
+    SHERPA_ONNX_LOGE(
+        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc phoneIds size: "
+        "%zu",
+        phoneIds.size());
+    SHERPA_ONNX_LOGE(
+        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc "
+        "ja_bert_vec_final size: %zu",
+        ja_bert_vec.size());
     // print phoneme_ids for debugging
 
     std::vector<TokenIDs> result_token_ids_vec;
     // std::vector<std::int64_t> toneIds = CreateToneKo(phoneIds.size());
     std::vector<std::int64_t> toneIds =
         std::vector<std::int64_t>(phoneIds.size(), 11);
-    result_token_ids_vec.emplace_back(std::move(phoneIds), std::move(toneIds));
+
+    SHERPA_ONNX_LOGE(
+        ">>>> ConvertTextToTokenIdsKorean 768 * phoneIds size: %zu = %zu "
+        "should  same ja_bert_vec_final.size :%zu",
+        phoneIds.size(), 768 * phoneIds.size(), ja_bert_vec_final.size());
+    result_token_ids_vec.emplace_back(std::move(phoneIds), std::move(toneIds),
+                                      std::move(ja_bert_vec_final));
     if (debug_) {
       std::ostringstream oss;
       oss << "phoneme_ids: [";
@@ -344,7 +561,7 @@ class MeloTtsLexicon::Impl {
 
     // std::string text = ToLowerCase(_text);
 
-    // SHERPA_ONNX_LOGE(">>> ConvertKoreanTextToTokenIds called with text: %s",
+    // SHERPA_ONNX_LOGE(">>> ConvertTextToTokenIdsKorean called with text: %s",
     //                  text.c_str());
     // std::vector<std::string> splited_ko_text = JamoUtils::split(text);
 
@@ -406,7 +623,7 @@ class MeloTtsLexicon::Impl {
     // //   oss << "]";
     // //   SHERPA_ONNX_LOGE("%s", oss.str().c_str());
     // // }
-    // SHERPA_ONNX_LOGE("ConvertKoreanTextToTokenIds completed");
+    // SHERPA_ONNX_LOGE("ConvertTextToTokenIdsKorean completed");
     // std::cout << "phoneme_ids: [";
     // for (const auto &id : phoneme_ids) {
     //   std::cout << id << ", ";
@@ -437,7 +654,7 @@ class MeloTtsLexicon::Impl {
 
     SHERPA_ONNX_LOGE("ConvertTextToTokenIds called do kroean with text: %s",
                      _text.c_str());
-    return ConvertKoreanTextToTokenIds(_text);
+    return ConvertTextToTokenIdsKorean(_text);
 
     std::string text =
         ToLowerCase(_text);  // 입력 텍스트를 소문자로 변환 (영어 대응)
@@ -708,17 +925,119 @@ class MeloTtsLexicon::Impl {
     return ans;
   }
 
+  std::vector<float> GetJaBert(const std::string &text) const {
+    Ort::MemoryInfo memory_info =
+        Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    SHERPA_ONNX_LOGE("--- Tokenization & BERT Input Preparation ---");
+
+    auto tokens_with_ids = tokenizer_kor_->tokenize_with_ids(text);
+    auto ids = tokens_with_ids.second;    // input_ids에 사용될 ID 값
+    auto tokens = tokens_with_ids.first;  // input_ids에 사용될 토큰 값
+    // TextToPhoneId()
+
+    // tokenizer_kor_->tokenize_with_ids(text);
+
+    const int64_t seq_len = ids.size();
+    const int64_t batch_size = 1;
+
+    std::vector<int64_t> input_ids_data(ids.begin(), ids.end());
+    std::vector<int64_t> token_type_ids_data(seq_len, 0);
+    std::vector<int64_t> attention_mask_data(seq_len, 1);
+
+    std::vector<int64_t> bert_input_shape = {batch_size, seq_len};
+
+    std::vector<Ort::Value> bert_input_tensors;
+
+    bert_input_tensors.push_back(Ort::Value::CreateTensor<int64_t>(
+        memory_info, input_ids_data.data(), input_ids_data.size(),
+        bert_input_shape.data(), bert_input_shape.size()));
+    bert_input_tensors.push_back(Ort::Value::CreateTensor<int64_t>(
+        memory_info, attention_mask_data.data(), attention_mask_data.size(),
+        bert_input_shape.data(), bert_input_shape.size()));
+    bert_input_tensors.push_back(Ort::Value::CreateTensor<int64_t>(
+        memory_info, token_type_ids_data.data(), token_type_ids_data.size(),
+        bert_input_shape.data(), bert_input_shape.size()));
+
+    // 2. BERT 모델 추론 실행
+    SHERPA_ONNX_LOGE("--- Running BERT Inference ---");
+    std::vector<Ort::Value> bert_output_tensors;
+    const char *my_input_names[] = {"input_ids", "attention_mask",
+                                    "token_type_ids"};
+    try {
+      // BERT 모델의 입력 이름 순서가 중요합니다. "input_ids", "attention_mask",
+      // "token_type_ids" ja_bert_input_names_ptr_는 InitJaBert에서 이미 모델의
+      // 실제 입력 이름을 얻어와 채워져 있어야 합니다.
+      bert_output_tensors = ja_bert_sess_->Run(
+          Ort::RunOptions{nullptr}, my_input_names, bert_input_tensors.data(),
+          bert_input_tensors.size(), ja_bert_output_names_ptr_.data(),
+          ja_bert_output_names_ptr_.size());
+      SHERPA_ONNX_LOGE("BERT Inference completed successfully.");
+    } catch (const Ort::Exception &e) {
+      SHERPA_ONNX_LOGE("Error running BERT inference: %s", e.what());
+      return {};  // 에러 발생 시 빈 벡터 반환
+    }
+
+    // 3. BERT 출력 결과 처리하여 ja_bert_vec 얻기
+    // BERT 모델의 출력은 보통 [batch_size, sequence_length, hidden_size] 형태의
+    // last_hidden_state 입니다. 혹은 [batch_size, hidden_size] 형태의
+    // pooled_output 일 수 있습니다. VITS 모델이 기대하는 형식에 따라 적절히
+    // 처리해야 합니다. 여기서는 last_hidden_state를 가정하고 flatten하여 1D
+    // float 벡터로 만듭니다.
+    std::vector<float> ja_bert_vec;
+    if (bert_output_tensors.empty()) {
+      SHERPA_ONNX_LOGE("BERT returned no output tensors.");
+      return {};
+    }
+
+    // BERT 모델의 첫 번째 출력을 가져옵니다.
+    Ort::Value &bert_output_tensor = bert_output_tensors[0];
+    auto bert_output_info = bert_output_tensor.GetTensorTypeAndShapeInfo();
+    std::vector<int64_t> bert_output_shape = bert_output_info.GetShape();
+    size_t bert_output_size = bert_output_info.GetElementCount();
+
+    // if (bert_output_data_type !=
+    // Ort::TypeAndShapeInfo::TensorElemDataType::ORT_FLOAT) {
+    //     SHERPA_ONNX_LOGE("BERT output type is not float. Expected float.");
+    //     return {};
+    // }
+
+    float *bert_output_data = bert_output_tensor.GetTensorMutableData<float>();
+
+    // VITS 모델이 기대하는 BERT 임베딩의 차원을 확인해야 합니다.
+    // 보통 [1, seq_len, 768] 형태이고, 이것을 [768 * seq_len]으로 flatten하여
+    // 사용합니다. 또는 [1, 768] (Pooled Output)일 수도 있습니다. 예시에서는
+    // last_hidden_state (3차원)를 flatten하는 것으로 가정합니다.
+    size_t expected_dim_count = 3;  // [batch, seq_len, hidden_size]
+    if (bert_output_shape.size() < expected_dim_count) {
+      SHERPA_ONNX_LOGE(
+          "Unexpected BERT output shape dimension. Expected at least 3 dims "
+          "(batch, seq_len, hidden_size). Got %zu.",
+          bert_output_shape.size());
+      // Pooled output ([batch, hidden_size])일 경우 여기를 수정해야 합니다.
+      // 예를 들어: expected_dim_count = 2; // [batch, hidden_size]
+    }
+
+    // 이 예시에서는 모든 BERT 출력을 그대로 ja_bert_vec에 복사합니다.
+    // 실제 BERT 출력의 hidden_size가 768이라고 가정합니다.
+    ja_bert_vec.assign(bert_output_data, bert_output_data + bert_output_size);
+
+    SHERPA_ONNX_LOGE("BERT output processed. ja_bert_vec size: %zu",
+                     ja_bert_vec.size());
+    return ja_bert_vec;
+  }
+
  private:
   void InitTokenizer(std::istream &is) {
-    // SHERPA_ONNX_LOGE(">>>> InitTokenizer vocab_path: %s", vocab_path.c_str());
+    // SHERPA_ONNX_LOGE(">>>> InitTokenizer vocab_path: %s",
+    // vocab_path.c_str());
     tokenizer_kor_ = std::make_unique<WordPieceTokenizer>(is, true);
     // if (debug_) {
-      auto tokens = tokenizer_kor_->tokenize("안녕하세요 좋은 아침입니다.");
-      for (const auto &t : tokens) {
-        SHERPA_ONNX_LOGE(">>>> InitTokenizer tokenizer test %s", t.c_str());
-      }
-      // SHERPA_ONNX_LOGE(">>>> InitTokenizer tokenizer test %s",
-      // vocab_path.c_str());
+    auto tokens = tokenizer_kor_->tokenize("안녕하세요 좋은 아침입니다.");
+    for (const auto &t : tokens) {
+      SHERPA_ONNX_LOGE(">>>> InitTokenizer tokenizer test %s", t.c_str());
+    }
+    // SHERPA_ONNX_LOGE(">>>> InitTokenizer tokenizer test %s",
+    // vocab_path.c_str());
     // }
   }
   TokenIDs ConvertWordToIds(const std::string &w) const {
@@ -865,6 +1184,38 @@ class MeloTtsLexicon::Impl {
     word2ids_["呣"] = word2ids_["母"];
     word2ids_["嗯"] = word2ids_["恩"];
   }
+  void InitJaBert(void *model_data, size_t model_data_length) {
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::InitJaBert() "
+        "csrc/offline-tts-vits-model.cc start");
+    ja_bert_env_ = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ja_bert");
+    ja_bert_sess_opts_ = Ort::SessionOptions();
+    ja_bert_sess_opts_.SetIntraOpNumThreads(1);
+
+    ja_bert_sess_ = std::make_unique<Ort::Session>(
+        ja_bert_env_, model_data, model_data_length, ja_bert_sess_opts_);
+    GetInputNames(ja_bert_sess_.get(), &ja_bert_input_names_,
+                  &ja_bert_input_names_ptr_);
+    GetOutputNames(ja_bert_sess_.get(), &ja_bert_output_names_,
+                   &ja_bert_output_names_ptr_);
+
+    // // get meta data
+    Ort::ModelMetadata meta_data = ja_bert_sess_->GetModelMetadata();
+    // // if (config_.debug) {
+    std::ostringstream os;
+    os << "---ja_bert model---\n";
+    PrintModelMetadata(os, meta_data);
+    os << "----------input names----------\n";
+    for (auto &name : ja_bert_input_names_) {
+      os << name << "\n";
+    }
+    os << "----------output names----------\n";
+    for (auto &name : ja_bert_output_names_) {
+      os << name << "\n";
+    }
+    SHERPA_ONNX_LOGE("%s", os.str().c_str());
+    // }
+  }
 
  private:
   // lexicon.txt is saved in word2ids_
@@ -877,8 +1228,21 @@ class MeloTtsLexicon::Impl {
 
   std::unique_ptr<cppjieba::Jieba> jieba_;
 
-  std::string ja_bert_model_path_;
   std::unique_ptr<WordPieceTokenizer> tokenizer_kor_;
+
+  // ja_bert
+  Ort::Env ja_bert_env_;
+  Ort::SessionOptions ja_bert_sess_opts_;
+  Ort::AllocatorWithDefaultOptions ja_bert_allocator_;
+
+  std::unique_ptr<Ort::Session> ja_bert_sess_;
+
+  std::vector<std::string> ja_bert_input_names_;
+  std::vector<const char *> ja_bert_input_names_ptr_;
+
+  std::vector<std::string> ja_bert_output_names_;
+  std::vector<const char *> ja_bert_output_names_ptr_;
+
   // std::string vocab_path_;
   bool debug_ = false;
 };
@@ -927,11 +1291,16 @@ MeloTtsLexicon::MeloTtsLexicon(Manager *mgr, const std::string &lexicon,
 
 std::vector<TokenIDs> MeloTtsLexicon::ConvertTextToTokenIds(
     const std::string &text, const std::string & /*unused_voice = ""*/) const {
-  // return impl_->ConvertKoreanTextToTokenIds(text);
+  // return impl_->ConvertTextToTokenIdsKorean(text);
   return impl_->ConvertTextToTokenIds(text);
   // return impl_->ConvertTextToTokenIds(text);
 }
 
+// std::vector<float> MeloTtsLexicon::GetJaBert(const std::string &text) const {
+//   SHERPA_ONNX_LOGE(">>>>> GetJaBert MeloTtsLexicon::GetJaBert impl");
+//   return impl_->GetJaBert(text);
+//   // return impl_->GetJaBert(text);
+// }
 #if __ANDROID_API__ >= 9
 template MeloTtsLexicon::MeloTtsLexicon(
     AAssetManager *mgr, const std::string &lexicon, const std::string &tokens,

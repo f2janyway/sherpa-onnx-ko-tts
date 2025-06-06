@@ -18,6 +18,8 @@
 #include "rawfile/raw_file_manager.h"
 #endif
 
+#include "melo-tts-lexicon.h"
+#include "offline-tts-vits-model.h"
 #include "sherpa-onnx/csrc/file-utils.h"
 #include "sherpa-onnx/csrc/macros.h"
 #include "sherpa-onnx/csrc/melo-tts-ko-const.h"
@@ -35,7 +37,8 @@ class OfflineTtsVitsModel::Impl {
         sess_opts_(GetSessionOptions(config)),
         allocator_{} {
     auto buf = ReadFile(config.vits.model);
-    SHERPA_ONNX_LOGE(">>>> OfflineTtsVitsModel::Impl Impl offline-tts-vits-model.cc 0");
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl Impl offline-tts-vits-model.cc 0");
     Init(buf.data(), buf.size());
   }
 
@@ -44,9 +47,12 @@ class OfflineTtsVitsModel::Impl {
       : config_(config),
         env_(ORT_LOGGING_LEVEL_ERROR),
         sess_opts_(GetSessionOptions(config)),
-        allocator_{} {
+        allocator_{}
+
+  {
     auto buf = ReadFile(mgr, config.vits.model);
-    SHERPA_ONNX_LOGE(">>>> OfflineTtsVitsModel::Impl Impl offline-tts-vits-model.cc 1");
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl Impl offline-tts-vits-model.cc 1");
     Init(buf.data(), buf.size());
   }
 
@@ -55,28 +61,33 @@ class OfflineTtsVitsModel::Impl {
       return RunVitsPiperOrCoqui(std::move(x), sid, speed);
     }
 
-    SHERPA_ONNX_LOGE(">>>> OfflineTtsVitsModel::Impl Ort::Value Run offline-tts-vits-model.cc ");
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl Ort::Value Run "
+        "offline-tts-vits-model.cc ");
     return RunVits(std::move(x), sid, speed);
   }
-
-  Ort::Value Run(Ort::Value x, Ort::Value tones, int64_t sid, float speed) {
+  Ort::Value Run(const std::string &text, std::vector<float> &ja_bert_vec,
+                 Ort::Value x, Ort::Value tones, int64_t sid, float speed) {
     SHERPA_ONNX_LOGE(
-        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
-        "start");
+        ">>>> OfflineTtsVitsModel::Impl::Run(ja_bert) "
+        "csrc/offline-tts-vits-model.cc start");
+
+    // tokenzie -> ja_bert
+
     if (meta_data_.num_speakers == 1) {
       // For MeloTTS, we hardcode sid to the one contained in the meta data
       sid = meta_data_.speaker_id;
     }
 
     SHERPA_ONNX_LOGE(
-        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
-        "create cpu");
+        ">>>> OfflineTtsVitsModel::Impl::Run(ja_bert) "
+        "csrc/offline-tts-vits-model.cc create cpu");
     auto memory_info =
         Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
     SHERPA_ONNX_LOGE(
-        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
-        "xshape");
+        ">>>> OfflineTtsVitsModel::Impl::Run(ja_bert) "
+        "csrc/offline-tts-vits-model.cc xshape");
 
     std::vector<int64_t> x_shape = x.GetTensorTypeAndShapeInfo().GetShape();
     if (x_shape[0] != 1) {
@@ -90,33 +101,38 @@ class OfflineTtsVitsModel::Impl {
     // --- Start of added code for ja_bert ---
     SHERPA_ONNX_LOGE(
         ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
-        "creating dummy ja_bert tensor len %d",
+        "ja_bert tensor len %d",
         len);
 
     // Define the shape for ja_bert
     std::vector<int64_t> ja_bert_shape = {1, 768, len};
 
-    // Calculate the total number of elements
-    // size_t ja_bert_num_elements = 1 * 768 * len;
+    SHERPA_ONNX_LOGE(
+        "DEBUG: ja_bert_vec actual size: %zu, 768 * %zu = %zu, this should "
+        "same",
+        ja_bert_vec.size(), len, 768 * len);
 
-    // Create a dummy float array for the tensor data
-    // You might want to initialize this with meaningful data if needed
-    // std::vector<float> dummy_ja_bert_data = ja_bert_vec;
-    // ReadJaBert(dummy_ja_bert_data);
-    for (int i = 0; i < 5; i++) {
-      SHERPA_ONNX_LOGE(
-          ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc dummy ja_bert data %f",
-          ja_bert_vec[i]);
+    // for (int i = 0; i < 5; i++) {
+    //   SHERPA_ONNX_LOGE("ja_bert_vec[%d] = %f", i, ja_bert_vec[i]);
+    // }
+    SHERPA_ONNX_LOGE("Dumping first 10 elements of ja_bert_vec:");
+    for (int i = 0; i < std::min((size_t)10, ja_bert_vec.size()); ++i) {
+      SHERPA_ONNX_LOGE("ja_bert_vec[%d]: %f", i, ja_bert_vec[i]);
     }
-    SHERPA_ONNX_LOGE("DEBUG: ja_bert_vec actual size: %zu", ja_bert_vec.size());
-    assert(ja_bert_vec.size() == 768 * len);
-    // Create the Ort::Value for ja_bert
+    // You might also want to check for NaNs or Infs
+    for (float val : ja_bert_vec) {
+      if (std::isnan(val) || std::isinf(val)) {
+        SHERPA_ONNX_LOGE("ERROR: ja_bert_vec contains NaN or Inf!");
+        break;
+      }
+    }
     Ort::Value ja_bert_tensor = Ort::Value::CreateTensor<float>(
         memory_info, ja_bert_vec.data(), ja_bert_vec.size(),
         ja_bert_shape.data(), ja_bert_shape.size());
-
     SHERPA_ONNX_LOGE(
-        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc dummy ja_bert tensor created");
+        ">>>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "ja_bert tensor created");
+
     // --- End of added code for ja_bert ---
     Ort::Value x_length =
         Ort::Value::CreateTensor(memory_info, &len, 1, &len_shape, 1);
@@ -154,12 +170,134 @@ class OfflineTtsVitsModel::Impl {
     inputs.push_back(std::move(noise_scale_w_tensor));  // Reordered
     inputs.push_back(std::move(ja_bert_tensor));
     SHERPA_ONNX_LOGE(
-        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc sess_->Run() start");
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "sess_->Run() start");
     auto out =
         sess_->Run({}, input_names_ptr_.data(), inputs.data(), inputs.size(),
                    output_names_ptr_.data(), output_names_ptr_.size());
     SHERPA_ONNX_LOGE(
-        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc sess_->Run() end");
+        ">>>> OfflineTtsVitsModel::Impl::Run() csrc/offline-tts-vits-model.cc "
+        "sess_->Run() end");
+
+    return std::move(out[0]);
+  }
+
+  Ort::Value Run(Ort::Value x, Ort::Value tones, int64_t sid, float speed) {
+    SHERPA_ONNX_LOGE(
+        ">>>>origin OfflineTtsVitsModel::Impl::Run() "
+        "csrc/offline-tts-vits-model.cc start");
+
+    // tokenzie -> ja_bert
+
+    if (meta_data_.num_speakers == 1) {
+      // For MeloTTS, we hardcode sid to the one contained in the meta data
+      sid = meta_data_.speaker_id;
+    }
+
+    SHERPA_ONNX_LOGE(
+        ">>>>origin OfflineTtsVitsModel::Impl::Run() "
+        "csrc/offline-tts-vits-model.cc "
+        "create cpu");
+    auto memory_info =
+        Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
+
+    SHERPA_ONNX_LOGE(
+        ">>>>origin OfflineTtsVitsModel::Impl::Run() "
+        "csrc/offline-tts-vits-model.cc "
+        "xshape");
+
+    std::vector<int64_t> x_shape = x.GetTensorTypeAndShapeInfo().GetShape();
+    if (x_shape[0] != 1) {
+      SHERPA_ONNX_LOGE("Support only batch_size == 1. Given: %d",
+                       static_cast<int32_t>(x_shape[0]));
+      exit(-1);
+    }
+
+    std::vector<float> ja_bert_vec = {};
+    int64_t len = x_shape[1];
+    int64_t len_shape = 1;
+    // --- Start of added code for ja_bert ---
+    SHERPA_ONNX_LOGE(
+        ">>>>origin OfflineTtsVitsModel::Impl::Run() "
+        "csrc/offline-tts-vits-model.cc  "
+        "ja_bert tensor len %d",
+        len);
+
+    // Define the shape for ja_bert
+    std::vector<int64_t> ja_bert_shape = {1, 768, len};
+
+    // Calculate the total number of elements
+    // size_t ja_bert_num_elements = 1 * 768 * len;
+
+    // Create a dummy float array for the tensor data
+    // You might want to initialize this with meaningful data if needed
+    // std::vector<float> dummy_ja_bert_data = ja_bert_vec;
+    // ReadJaBert(dummy_ja_bert_data);
+    for (int i = 0; i < 5; i++) {
+      SHERPA_ONNX_LOGE(
+          ">>>>origin OfflineTtsVitsModel::Impl::Run() "
+          "csrc/offline-tts-vits-model.cc dummy ja_bert data %f",
+          ja_bert_vec[i]);
+    }
+    SHERPA_ONNX_LOGE("111DEBUG: ja_bert_vec actual size: %zu",
+                     ja_bert_vec.size());
+    assert(ja_bert_vec.size() == 768 * len);
+    // Create the Ort::Value for ja_bert
+    Ort::Value ja_bert_tensor = Ort::Value::CreateTensor<float>(
+        memory_info, ja_bert_vec.data(), ja_bert_vec.size(),
+        ja_bert_shape.data(), ja_bert_shape.size());
+
+    SHERPA_ONNX_LOGE(
+        ">>>>origin OfflineTtsVitsModel::Impl::Run() "
+        "csrc/offline-tts-vits-model.cc "
+        "dummy ja_bert tensor created");
+    // --- End of added code for ja_bert ---
+    Ort::Value x_length =
+        Ort::Value::CreateTensor(memory_info, &len, 1, &len_shape, 1);
+
+    int64_t scale_shape = 1;
+    float noise_scale = config_.vits.noise_scale;
+    float length_scale = config_.vits.length_scale;
+    float noise_scale_w = config_.vits.noise_scale_w;
+
+    if (speed != 1 && speed > 0) {
+      length_scale = 1. / speed;
+    }
+
+    Ort::Value noise_scale_tensor =
+        Ort::Value::CreateTensor(memory_info, &noise_scale, 1, &scale_shape, 1);
+
+    Ort::Value length_scale_tensor = Ort::Value::CreateTensor(
+        memory_info, &length_scale, 1, &scale_shape, 1);
+
+    Ort::Value noise_scale_w_tensor = Ort::Value::CreateTensor(
+        memory_info, &noise_scale_w, 1, &scale_shape, 1);
+
+    Ort::Value sid_tensor =
+        Ort::Value::CreateTensor(memory_info, &sid, 1, &scale_shape, 1);
+
+    std::vector<Ort::Value> inputs;
+    // inputs.reserve(7);
+    inputs.reserve(8);
+    inputs.push_back(std::move(x));
+    inputs.push_back(std::move(x_length));
+    inputs.push_back(std::move(tones));
+    inputs.push_back(std::move(sid_tensor));
+    inputs.push_back(std::move(noise_scale_tensor));    // Reordered
+    inputs.push_back(std::move(length_scale_tensor));   // Reordered
+    inputs.push_back(std::move(noise_scale_w_tensor));  // Reordered
+    inputs.push_back(std::move(ja_bert_tensor));
+    SHERPA_ONNX_LOGE(
+        ">>>>origin OfflineTtsVitsModel::Impl::Run() "
+        "csrc/offline-tts-vits-model.cc "
+        "sess_->Run() start");
+    auto out =
+        sess_->Run({}, input_names_ptr_.data(), inputs.data(), inputs.size(),
+                   output_names_ptr_.data(), output_names_ptr_.size());
+    SHERPA_ONNX_LOGE(
+        ">>>>origin no used OfflineTtsVitsModel::Impl::Run() "
+        "csrc/offline-tts-vits-model.cc "
+        "sess_->Run() end");
 
     return std::move(out[0]);
   }
@@ -172,7 +310,8 @@ class OfflineTtsVitsModel::Impl {
                                            sess_opts_);
 
     SHERPA_ONNX_LOGE(
-        ">>>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc start");
+        ">>>> OfflineTtsVitsModel::Impl::Init() csrc/offline-tts-vits-model.cc "
+        "start");
     GetInputNames(sess_.get(), &input_names_, &input_names_ptr_);
 
     GetOutputNames(sess_.get(), &output_names_, &output_names_ptr_);
@@ -327,7 +466,9 @@ class OfflineTtsVitsModel::Impl {
   }
 
   Ort::Value RunVits(Ort::Value x, int64_t sid, float speed) {
-    SHERPA_ONNX_LOGE(">>>> OfflineTtsVitsModel::Impl::RunVits() csrc/offline-tts-vits-model");
+    SHERPA_ONNX_LOGE(
+        ">>>> OfflineTtsVitsModel::Impl::RunVits() "
+        "csrc/offline-tts-vits-model");
     auto memory_info =
         Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
@@ -420,9 +561,21 @@ Ort::Value OfflineTtsVitsModel::Run(Ort::Value x, int64_t sid /*=0*/,
 Ort::Value OfflineTtsVitsModel::Run(Ort::Value x, Ort::Value tones,
                                     int64_t sid /*= 0*/,
                                     float speed /*= 1.0*/) const {
+  SHERPA_ONNX_LOGE(
+      ">>>> OfflineTtsVitsModel::Run() csrc/offline-tts-vits-model.cc");
   return impl_->Run(std::move(x), std::move(tones), sid, speed);
 }
 
+Ort::Value OfflineTtsVitsModel::Run(const std::string &text,
+                                    std::vector<float> &ja_bert_vec,
+                                    Ort::Value x, Ort::Value tones, int64_t sid,
+                                    float speed) {
+  SHERPA_ONNX_LOGE(
+      ">>>> OfflineTtsVitsModel::Run() csrc/offline-tts-vits-model.cc passed "
+      "frontend");
+  return impl_->Run(text, ja_bert_vec, std::move(x), std::move(tones), sid,
+                    speed);
+}
 const OfflineTtsVitsModelMetaData &OfflineTtsVitsModel::GetMetaData() const {
   return impl_->GetMetaData();
 }
