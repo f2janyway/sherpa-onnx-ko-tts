@@ -311,7 +311,7 @@ class MeloTtsLexicon::Impl {
                      _text.c_str());
 
     // std::vector<std::int64_t> phoneIds = TextToPhoneId(_text);
-    std::vector<float> ja_bert_vec = GetJaBert(_text);
+
     // std::vector<float> ja_bert_vec_final;
     SHERPA_ONNX_LOGE(
         ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc start g2pk");
@@ -362,9 +362,9 @@ class MeloTtsLexicon::Impl {
       SHERPA_ONNX_LOGE(
           ">>>> ConvertTextToTokenIdsKorean G2pResult word2ph size: %zu",
           word2ph.size());
-      SHERPA_ONNX_LOGE(
-          ">>>> ConvertTextToTokenIdsKorean G2pResult ja_bert_vec size: %zu",
-          ja_bert_vec.size());
+      // SHERPA_ONNX_LOGE(
+      //     ">>>> ConvertTextToTokenIdsKorean G2pResult ja_bert_vec size: %zu",
+      //     ja_bert_vec.size());
     }
 
     /// 여기선 미리 해준다!!!! ja_bert_vec
@@ -457,59 +457,64 @@ class MeloTtsLexicon::Impl {
     //
     /////////////////////////////////
     /////////////////////////////////
-    std::vector<float> ja_bert_vec_final;
-    int token_idx = 0;
-    const int ja_bert_vec_size = 768;
-    std::ostringstream word2ph_stream;
-    for (auto e : word2ph) {
-      word2ph_stream << e << ",";
-      // word2ph 값이 1인 경우 해당 토큰은 건너뜁니다.
-      // 하지만 ja_bert_vec_input에서 다음 토큰 위치로 이동하기 위해 token_idx는
-      // 증가해야 합니다.
-      // if (e == 1) {
-      //   token_idx++;
-      //   continue;
-      // }
+    std::vector<float> ja_bert_vec = GetJaBert(_text, word2ph);
+    // ja_bert_vec에서 완전히 처리되서 나옴
+    // std::vector<float> ja_bert_vec_final;
 
-      // ja_bert_vec_input에서 현재 토큰 벡터의 시작 위치를 계산합니다.
-      int start_idx_in_input = token_idx * ja_bert_vec_size;
 
-      // ja_bert_vec_input의 끝을 벗어나지 않도록 범위 체크
-      if (start_idx_in_input + ja_bert_vec_size > ja_bert_vec.size()) {
-        // std::cerr << "Error: Out of bounds access for ja_bert_vec_input at
-        // token_idx " << token_idx << std::endl; SHERPA_ONNX_LOGE("Error: Out
-        // of bounds access for ja_bert_vec_input at token_idx " << token_idx);
-        SHERPA_ONNX_LOGE(
-            ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_size: %zu",
-            ja_bert_vec_size);
-        SHERPA_ONNX_LOGE(
-            ">>>> ConvertTextToTokenIdsKorean ja_bert_vec.size(): %zu",
-            ja_bert_vec.size());
-        SHERPA_ONNX_LOGE(
-            ">>>> ConvertTextToTokenIdsKorean Error: Out of bounds access for "
-            "ja_bert_vec_input at token_idx %zu",
-            token_idx);
-        break;  // 또는 적절한 오류 처리
-      }
+    //GetJJaBert(_text, word2ph);에서 완전히 처리
+    // int token_idx = 0;
+    // const int ja_bert_vec_size = 768;
+    // std::ostringstream word2ph_stream;
+    // for (auto e : word2ph) {
+    //   word2ph_stream << e << ",";
+    //   // word2ph 값이 1인 경우 해당 토큰은 건너뜁니다.
+    //   // 하지만 ja_bert_vec_input에서 다음 토큰 위치로 이동하기 위해 token_idx는
+    //   // 증가해야 합니다.
+    //   // if (e == 1) {
+    //   //   token_idx++;
+    //   //   continue;
+    //   // }
 
-      // 현재 토큰에 해당하는 벡터의 시작과 끝 이터레이터를 가져옵니다.
-      auto it_begin = ja_bert_vec.begin() + start_idx_in_input;
-      auto it_end = ja_bert_vec.begin() + start_idx_in_input + ja_bert_vec_size;
+    //   // ja_bert_vec_input에서 현재 토큰 벡터의 시작 위치를 계산합니다.
+    //   int start_idx_in_input = token_idx * ja_bert_vec_size;
 
-      // 'e'번 반복하여 ja_bert_vec_final에 벡터를 통째로 추가합니다.
-      for (int i = 0; i < e; i++) {
-        ja_bert_vec_final.insert(ja_bert_vec_final.end(), it_begin, it_end);
-        // SHERPA_ONNX_LOGE(
-        //     ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size:
-        //     %zu,tokenIdx: %d", ja_bert_vec_final.size(),token_idx);
-      }
-      token_idx++;
-    }
-    SHERPA_ONNX_LOGE(">>>> word2ph addblanks sequence: %s",
-                     word2ph_stream.str().c_str());
+    //   // ja_bert_vec_input의 끝을 벗어나지 않도록 범위 체크
+    //   if (start_idx_in_input + ja_bert_vec_size > ja_bert_vec.size()) {
+    //     // std::cerr << "Error: Out of bounds access for ja_bert_vec_input at
+    //     // token_idx " << token_idx << std::endl; SHERPA_ONNX_LOGE("Error: Out
+    //     // of bounds access for ja_bert_vec_input at token_idx " << token_idx);
+    //     SHERPA_ONNX_LOGE(
+    //         ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_size: %zu",
+    //         ja_bert_vec_size);
+    //     SHERPA_ONNX_LOGE(
+    //         ">>>> ConvertTextToTokenIdsKorean ja_bert_vec.size(): %zu",
+    //         ja_bert_vec.size());
+    //     SHERPA_ONNX_LOGE(
+    //         ">>>> ConvertTextToTokenIdsKorean Error: Out of bounds access for "
+    //         "ja_bert_vec_input at token_idx %zu",
+    //         token_idx);
+    //     break;  // 또는 적절한 오류 처리
+    //   }
+
+    //   // 현재 토큰에 해당하는 벡터의 시작과 끝 이터레이터를 가져옵니다.
+    //   auto it_begin = ja_bert_vec.begin() + start_idx_in_input;
+    //   auto it_end = ja_bert_vec.begin() + start_idx_in_input + ja_bert_vec_size;
+
+    //   // 'e'번 반복하여 ja_bert_vec_final에 벡터를 통째로 추가합니다.
+    //   for (int i = 0; i < e; i++) {
+    //     ja_bert_vec_final.insert(ja_bert_vec_final.end(), it_begin, it_end);
+    //     // SHERPA_ONNX_LOGE(
+    //     //     ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size:
+    //     //     %zu,tokenIdx: %d", ja_bert_vec_final.size(),token_idx);
+    //   }
+    //   token_idx++;
+    // }
+    // SHERPA_ONNX_LOGE(">>>> word2ph addblanks sequence: %s",
+    //                  word2ph_stream.str().c_str());
     SHERPA_ONNX_LOGE(
         ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size: %zu",
-        ja_bert_vec_final.size());
+        ja_bert_vec.size());
 
     SHERPA_ONNX_LOGE(
         ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc phoneIds size: "
@@ -526,12 +531,23 @@ class MeloTtsLexicon::Impl {
     std::vector<std::int64_t> toneIds =
         std::vector<std::int64_t>(phoneIds.size(), 11);
 
+    std::ostringstream oss;
+    oss << "real_ja_bert10: [";
+    for (size_t i = 0; i < 10; ++i) {
+      oss << ja_bert_vec[i] << ",";
+    }
+    oss << "]";
+    SHERPA_ONNX_LOGE("%s", oss.str().c_str());
+    // SHERPA_ONNX_LOGE("=======THIS TEMP JARBERT as 0 =======");
+
+    // std::vector<float> temp_ja_bert_vec_final =
+    //     std::vector<float>(ja_bert_vec_final.size(), 0.0);
     SHERPA_ONNX_LOGE(
         ">>>> ConvertTextToTokenIdsKorean 768 * phoneIds size: %zu = %zu "
         "should  same ja_bert_vec_final.size :%zu",
-        phoneIds.size(), 768 * phoneIds.size(), ja_bert_vec_final.size());
+        phoneIds.size(), 768 * phoneIds.size(), ja_bert_vec.size());
     result_token_ids_vec.emplace_back(std::move(phoneIds), std::move(toneIds),
-                                      std::move(ja_bert_vec_final));
+                                      std::move(ja_bert_vec));
     if (debug_) {
       std::ostringstream oss;
       oss << "phoneme_ids: [";
@@ -925,7 +941,8 @@ class MeloTtsLexicon::Impl {
     return ans;
   }
 
-  std::vector<float> GetJaBert(const std::string &text) const {
+  std::vector<float> GetJaBert(const std::string &text,
+                               std::vector<int64_t> &word2ph_final) const {
     Ort::MemoryInfo memory_info =
         Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     SHERPA_ONNX_LOGE("--- Tokenization & BERT Input Preparation ---");
@@ -934,6 +951,20 @@ class MeloTtsLexicon::Impl {
     auto ids = tokens_with_ids.second;    // input_ids에 사용될 ID 값
     auto tokens = tokens_with_ids.first;  // input_ids에 사용될 토큰 값
     // TextToPhoneId()
+    {
+      std::ostringstream os;
+      for (const auto &id : ids) {
+        os << id << " ";
+      }
+      SHERPA_ONNX_LOGE("GetJaBert input_ids: %s", os.str().c_str());
+    }
+    {
+      std::ostringstream os;
+      for (const auto &token : tokens) {
+        os << token << " ";
+      }
+      SHERPA_ONNX_LOGE("GetJaBert tokens: %s", os.str().c_str());
+    }
 
     // tokenizer_kor_->tokenize_with_ids(text);
 
@@ -989,41 +1020,224 @@ class MeloTtsLexicon::Impl {
       return {};
     }
 
+    SHERPA_ONNX_LOGE("GetJatBert bert_output_tensors.size(): %d",
+                     bert_output_tensors.size());
     // BERT 모델의 첫 번째 출력을 가져옵니다.
     Ort::Value &bert_output_tensor = bert_output_tensors[0];
     auto bert_output_info = bert_output_tensor.GetTensorTypeAndShapeInfo();
     std::vector<int64_t> bert_output_shape = bert_output_info.GetShape();
     size_t bert_output_size = bert_output_info.GetElementCount();
+    // bert_output_tensors의 모든 텐서들을 순회하며 출력
+    for (size_t i = 0; i < bert_output_tensors.size(); ++i) {
+      Ort::Value &current_tensor = bert_output_tensors[i];
+      auto current_info = current_tensor.GetTensorTypeAndShapeInfo();
+      std::vector<int64_t> current_shape = current_info.GetShape();
+      size_t current_element_count = current_info.GetElementCount();
 
-    // if (bert_output_data_type !=
-    // Ort::TypeAndShapeInfo::TensorElemDataType::ORT_FLOAT) {
-    //     SHERPA_ONNX_LOGE("BERT output type is not float. Expected float.");
-    //     return {};
-    // }
+      SHERPA_ONNX_LOGE("--- Tensor %zu of bert_output_tensors ---", i);
 
-    float *bert_output_data = bert_output_tensor.GetTensorMutableData<float>();
+      // 텐서의 형태(shape) 출력
+      std::string shape_str = "[";
+      for (size_t dim_idx = 0; dim_idx < current_shape.size(); ++dim_idx) {
+        shape_str += std::to_string(current_shape[dim_idx]);
+        if (dim_idx < current_shape.size() - 1) {
+          shape_str += ", ";
+        }
+      }
+      shape_str += "]";
+      SHERPA_ONNX_LOGE("Shape: %s", shape_str.c_str());
+      SHERPA_ONNX_LOGE("Total elements: %zu", current_element_count);
 
-    // VITS 모델이 기대하는 BERT 임베딩의 차원을 확인해야 합니다.
-    // 보통 [1, seq_len, 768] 형태이고, 이것을 [768 * seq_len]으로 flatten하여
-    // 사용합니다. 또는 [1, 768] (Pooled Output)일 수도 있습니다. 예시에서는
-    // last_hidden_state (3차원)를 flatten하는 것으로 가정합니다.
-    size_t expected_dim_count = 3;  // [batch, seq_len, hidden_size]
-    if (bert_output_shape.size() < expected_dim_count) {
+      // 텐서 데이터에 접근하여 모든 벡터의 앞 3개 원소 출력
+      if (current_element_count > 0 &&
+          current_shape.size() >=
+              3) {  // 최소한 [batch, seq_len, hidden_size] 형태여야 함
+        float *current_data = current_tensor.GetTensorMutableData<float>();
+
+        // current_shape: [batch_size, sequence_length, hidden_size]
+        // 여기서 batch_size는 1이라고 가정합니다.
+        // int64_t sequence_length = current_shape[1];
+        int64_t sequence_length = 5;
+        int64_t hidden_size = current_shape[2];
+
+        const size_t num_elements_to_print_per_vector =
+            std::min((size_t)3, (size_t)hidden_size);
+
+        SHERPA_ONNX_LOGE("5개만 보이게==================");
+        SHERPA_ONNX_LOGE(
+            "Printing first %zu elements for each of %lld vectors (tokens):",
+            num_elements_to_print_per_vector, sequence_length);
+
+        for (int64_t seq_idx = 0; seq_idx < sequence_length; ++seq_idx) {
+          std::string vector_elements_str = "Vector (token) ";
+          vector_elements_str += std::to_string(seq_idx);
+          vector_elements_str += ": [";
+
+          // 각 벡터의 시작 오프셋 계산: seq_idx * hidden_size
+          float *vector_start_ptr = current_data + (seq_idx * hidden_size);
+
+          for (size_t elem_idx = 0; elem_idx < num_elements_to_print_per_vector;
+               ++elem_idx) {
+            vector_elements_str += std::to_string(vector_start_ptr[elem_idx]);
+            if (elem_idx < num_elements_to_print_per_vector - 1) {
+              vector_elements_str += ", ";
+            }
+          }
+          vector_elements_str += "]";
+          SHERPA_ONNX_LOGE("%s", vector_elements_str.c_str());
+        }
+      } else if (current_element_count > 0 && current_shape.size() < 3) {
+        SHERPA_ONNX_LOGE(
+            "Warning: Tensor has fewer than 3 dimensions. Cannot process as "
+            "[batch, seq_len, hidden_size].");
+        // 이 경우에는 기존처럼 전체 텐서의 처음 10개 원소를 출력할 수 있습니다.
+        // 예를 들어:
+        // size_t num_elements_to_print = std::min((size_t)10,
+        // current_element_count);
+        // ... (기존 처음 10개 출력 로직) ...
+      } else {
+        SHERPA_ONNX_LOGE("Tensor is empty (0 elements).");
+      }
+    }
+    // 추출된 BERT 출력의 핵심 차원
+    // bert_output_shape: [batch_size, sequence_length, hidden_size]
+    int64_t original_sequence_length = bert_output_shape[1];  // 예: 9
+    int64_t hidden_size = bert_output_shape[2];               // 예: 768
+
+    // word2ph_final의 길이와 original_sequence_length가 일치하는지 확인 (필수)
+    if (word2ph_final.size() != original_sequence_length) {
       SHERPA_ONNX_LOGE(
-          "Unexpected BERT output shape dimension. Expected at least 3 dims "
-          "(batch, seq_len, hidden_size). Got %zu.",
-          bert_output_shape.size());
-      // Pooled output ([batch, hidden_size])일 경우 여기를 수정해야 합니다.
-      // 예를 들어: expected_dim_count = 2; // [batch, hidden_size]
+          "Mismatch between word2ph_final size (%zu) and BERT original "
+          "sequence length (%lld).",
+          word2ph_final.size(), original_sequence_length);
+      return {};  // 에러 처리: 빈 벡터 반환
     }
 
-    // 이 예시에서는 모든 BERT 출력을 그대로 ja_bert_vec에 복사합니다.
-    // 실제 BERT 출력의 hidden_size가 768이라고 가정합니다.
-    ja_bert_vec.assign(bert_output_data, bert_output_data + bert_output_size);
+    // 1. 확장된 시퀀스 길이 계산
+    long long expanded_sequence_length = 0;
+    for (int64_t count : word2ph_final) {
+      expanded_sequence_length += count;
+    }
 
-    SHERPA_ONNX_LOGE("BERT output processed. ja_bert_vec size: %zu",
-                     ja_bert_vec.size());
+    SHERPA_ONNX_LOGE(
+        "Original BERT sequence length: %lld, Expanded sequence length: %lld",
+        original_sequence_length, expanded_sequence_length);
+    float *bert_output_data = bert_output_tensor.GetTensorMutableData<float>();
+    // 2. 확장된 데이터를 저장할 임시 벡터 (전치 전)
+    // 형태: [expanded_sequence_length, hidden_size]
+    std::vector<float> expanded_data_flat(expanded_sequence_length *
+                                          hidden_size);
+    size_t current_expanded_idx =
+        0;  // expanded_data_flat에 데이터를 채울 현재 위치
+
+    for (int64_t original_seq_idx = 0;
+         original_seq_idx < original_sequence_length; ++original_seq_idx) {
+      // 현재 원본 BERT 벡터의 시작 포인터
+      float *original_vector_start_ptr =
+          bert_output_data + (original_seq_idx * hidden_size);
+
+      // word2ph_final에 해당하는 반복 횟수
+      int64_t repeat_count = word2ph_final[original_seq_idx];
+
+      for (int64_t r = 0; r < repeat_count; ++r) {
+        // 현재 벡터를 expanded_data_flat에 복사
+        for (int64_t h_idx = 0; h_idx < hidden_size; ++h_idx) {
+          expanded_data_flat[current_expanded_idx * hidden_size + h_idx] =
+              original_vector_start_ptr[h_idx];
+        }
+        current_expanded_idx++;
+      }
+    }
+
+    SHERPA_ONNX_LOGE("Expanded data generated. Flat size: %zu",
+                     expanded_data_flat.size());
+
+    // (디버깅용) 확장된 데이터의 앞 10개 원소 출력
+    // SHERPA_ONNX_LOGE("Expanded data (first 10 elements):");
+    // std::string debug_expanded_str = "[";
+    // for (size_t k = 0; k < std::min((size_t)10, expanded_data_flat.size());
+    // ++k) {
+    //     debug_expanded_str += std::to_string(expanded_data_flat[k]);
+    //     if (k < std::min((size_t)10, expanded_data_flat.size()) - 1)
+    //     debug_expanded_str += ", ";
+    // }
+    // debug_expanded_str += "]";
+    // SHERPA_ONNX_LOGE("%s", debug_expanded_str.c_str());
+
+    // 3. 확장된 데이터를 전치 (Transpose)
+    // 목표: [expanded_sequence_length, hidden_size] -> [hidden_size,
+    // expanded_sequence_length] 전치된 데이터를 ja_bert_vec에 직접 채웁니다.
+    ja_bert_vec.assign(expanded_sequence_length * hidden_size,
+                       0.0f);  // 크기 할당 및 0으로 초기화 (선택 사항)
+
+    for (int64_t h_idx = 0; h_idx < hidden_size; ++h_idx) {
+      for (int64_t exp_seq_idx = 0; exp_seq_idx < expanded_sequence_length;
+           ++exp_seq_idx) {
+        // 전치 공식:
+        // Transposed[row][col] = Original[col][row]
+        // 즉, ja_bert_vec[h_idx][exp_seq_idx] =
+        // expanded_data_flat[exp_seq_idx][h_idx]
+        ja_bert_vec[h_idx * expanded_sequence_length + exp_seq_idx] =
+            expanded_data_flat[exp_seq_idx * hidden_size + h_idx];
+      }
+    }
+
+    SHERPA_ONNX_LOGE(
+        "Data transposed and copied to ja_bert_vec. Final ja_bert_vec size: "
+        "%zu",
+        ja_bert_vec.size());
+
+    // (디버깅용) 최종 ja_bert_vec의 앞 10개 원소 출력 (전치된 형태)
+    SHERPA_ONNX_LOGE("Final ja_bert_vec (first 10 elements):");
+    std::string final_elements_str = "[";
+    for (size_t k = 0; k < std::min((size_t)10, ja_bert_vec.size()); ++k) {
+      final_elements_str += std::to_string(ja_bert_vec[k]);
+      if (k < std::min((size_t)10, ja_bert_vec.size()) - 1) {
+        final_elements_str += ", ";
+      }
+    }
+    final_elements_str += "]";
+    SHERPA_ONNX_LOGE("%s", final_elements_str.c_str());
+
     return ja_bert_vec;
+    // auto bert_output_info = bert_output_tensor.GetTensorTypeAndShapeInfo();
+    // std::vector<int64_t> bert_output_shape = bert_output_info.GetShape();
+    // size_t bert_output_size = bert_output_info.GetElementCount();
+
+    // // if (bert_output_data_type !=
+    // // Ort::TypeAndShapeInfo::TensorElemDataType::ORT_FLOAT) {
+    // //     SHERPA_ONNX_LOGE("BERT output type is not float. Expected
+    // float.");
+    // //     return {};
+    // // }
+
+    // float *bert_output_data =
+    // bert_output_tensor.GetTensorMutableData<float>();
+
+    // // VITS 모델이 기대하는 BERT 임베딩의 차원을 확인해야 합니다.
+    // // 보통 [1, seq_len, 768] 형태이고, 이것을 [768 * seq_len]으로
+    // flatten하여
+    // // 사용합니다. 또는 [1, 768] (Pooled Output)일 수도 있습니다. 예시에서는
+    // // last_hidden_state (3차원)를 flatten하는 것으로 가정합니다.
+    // size_t expected_dim_count = 3;  // [batch, seq_len, hidden_size]
+    // if (bert_output_shape.size() < expected_dim_count) {
+    //   SHERPA_ONNX_LOGE(
+    //       "Unexpected BERT output shape dimension. Expected at least 3 dims "
+    //       "(batch, seq_len, hidden_size). Got %zu.",
+    //       bert_output_shape.size());
+    //   // Pooled output ([batch, hidden_size])일 경우 여기를 수정해야 합니다.
+    //   // 예를 들어: expected_dim_count = 2; // [batch, hidden_size]
+    // }
+
+    // // 이 예시에서는 모든 BERT 출력을 그대로 ja_bert_vec에 복사합니다.
+    // // 실제 BERT 출력의 hidden_size가 768이라고 가정합니다.
+    // ja_bert_vec.assign(bert_output_data, bert_output_data +
+    // bert_output_size);
+
+    // SHERPA_ONNX_LOGE("GetJaBert BERT output processed. ja_bert_vec size:
+    // %zu",
+    //                  ja_bert_vec.size());
+    // return ja_bert_vec;
   }
 
  private:
