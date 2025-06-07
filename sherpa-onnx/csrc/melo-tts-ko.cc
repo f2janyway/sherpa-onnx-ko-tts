@@ -1091,9 +1091,12 @@ G2PResult g2pk(const std::string& norm_text, WordPieceTokenizer& tokenizer) {
             text += ch;
         }
 
+        
         if (text == "[UNK]") {
             phs.push_back("_");
             word2ph_local.push_back(1);
+            /// 추가 이게 맞나?
+            // ph_ids.push_back(0);
             continue;
         }
         else if (punctuation.count(text)) {
@@ -1217,8 +1220,127 @@ G2PResult g2pk(const std::string& norm_text, WordPieceTokenizer& tokenizer) {
     SHERPA_ONNX_LOGE("phones_final.size(): %d", phones_final.size());
     SHERPA_ONNX_LOGE("tones_final.size(): %d", tones_final.size());
     SHERPA_ONNX_LOGE("word2ph_final.size(): %d", word2ph_final.size());
+    // sum of word2ph_final
+    int64_t sum = 0;
+    for(int i = 0; i < word2ph_final.size(); i++){
+      sum += word2ph_final[i];
+    }
+    SHERPA_ONNX_LOGE("sum of word2ph_final: %d", sum);
     SHERPA_ONNX_LOGE("ph_ids_final.size(): %d", ph_ids_final.size());
     // return G2PResult{ phones_final, tones_final, word2ph_final };
     return G2PResult{ phones_final,ph_ids_final, tones_final, word2ph_final };
 }
 
+// Function to trim leading/trailing whitespace from a string
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\n\r\f\v");
+    if (std::string::npos == first) {
+        return str; // No non-whitespace characters
+    }
+    size_t last = str.find_last_not_of(" \t\n\r\f\v");
+    return str.substr(first, (last - first + 1));
+}
+
+// Forward declaration for merge_short_sentences_ko
+std::vector<std::string> merge_short_sentences_ko(std::vector<std::string> sentences, int min_len_merge = 15);
+
+
+std::vector<std::string> split_sentences_ko(const std::string& text, int min_len ) {
+    std::string processed_text = text;
+
+    // 1. 텍스트 내의 여러 종류의 공백, 탭, 줄바꿈 등을 하나의 공백으로 정규화
+    // Equivalent to: text = re.sub('[\n\t ]+', ' ', text)
+    processed_text = std::regex_replace(processed_text, std::regex("[\\n\\t ]+"), " ");
+
+    // 2. 한국어 문장 종결 구두점 (온점, 물음표, 느낌표) 뒤에 특수 구분자 "$#!" 삽입
+    //    쉼표(,) 뒤에도 삽입하여 초기 분리 기준으로 사용 (나중에 길이가 짧으면 다시 병합)
+    //    주의: 한국어 특성상 온점 없이 '입니다', '했어요' 등으로 문장이 끝날 수 있지만
+    //    이를 모두 regex로 잡는 것은 오탐이 많으므로, 주요 구두점만 사용.
+    // Equivalent to: re.sub('([.!?])', r'\1 $#!', text)
+    processed_text = std::regex_replace(processed_text, std::regex("([.!?])"), "$1 $#!");
+    // 쉼표도 분리 기준으로 사용 (추후 min_len으로 병합될 수 있음)
+    processed_text = std::regex_replace(processed_text, std::regex("([,])"), "$1 $#!");
+
+
+    // 3. 특수 구분자 "$#!"를 기준으로 문장 분리
+    std::vector<std::string> sentences;
+    std::string delimiter = "$#!";
+    size_t pos = 0;
+    std::string token;
+    while ((pos = processed_text.find(delimiter)) != std::string::npos) {
+        token = processed_text.substr(0, pos);
+        std::string trimmed_token = trim(token);
+        if (!trimmed_token.empty()) {
+            sentences.push_back(trimmed_token);
+        }
+        processed_text.erase(0, pos + delimiter.length());
+    }
+    // Add the last part of the string after the last delimiter
+    std::string trimmed_last_part = trim(processed_text);
+    if (!trimmed_last_part.empty()) {
+        sentences.push_back(trimmed_last_part);
+    }
+
+    // 4. 짧은 문장들을 `min_len` 기준에 따라 병합
+    std::vector<std::string> new_sentences;
+    std::vector<std::string> new_sent_buffer;
+    int count_len = 0;
+
+    for (size_t i = 0; i < sentences.size(); ++i) {
+        new_sent_buffer.push_back(sentences[i]);
+        // Note: string::length() returns bytes for multi-byte encodings (like UTF-8 for Korean).
+        // For accurate character count, a Unicode library (e.g., ICU) is recommended.
+        // For simple length checks, byte length might be sufficient depending on requirements.
+        count_len += sentences[i].length(); 
+
+        if (count_len > min_len || i == sentences.size() - 1) {
+            count_len = 0;
+            std::string joined_sentence;
+            for (size_t j = 0; j < new_sent_buffer.size(); ++j) {
+                joined_sentence += new_sent_buffer[j];
+                // 조인된 문장 사이에 공백을 추가할지 여부는 시나리오에 따라 다릅니다.
+                // 보통은 이미 공백으로 분리된 토큰이므로 추가하지 않거나,
+                // 필요하다면 공백을 추가할 수 있습니다.
+                // 여기서는 이미 공백 정규화 후 분리되었으므로 명시적으로 추가하지 않음.
+            }
+            new_sentences.push_back(trim(joined_sentence));
+            new_sent_buffer.clear();
+        }
+    }
+
+    // 5. 최종적으로 짧은 문장을 한 번 더 병합 (선택적)
+    return merge_short_sentences_ko(new_sentences);
+}
+
+// 짧은 문장들을 병합하는 함수
+// Python의 merge_short_sentences_zh와 유사한 역할
+std::vector<std::string> merge_short_sentences_ko(std::vector<std::string> sentences, int min_len_merge) {
+    if (sentences.empty()) {
+        return {};
+    }
+
+    std::vector<std::string> merged_result;
+    std::string current_merged_sentence = sentences[0];
+
+    for (size_t i = 1; i < sentences.size(); ++i) {
+        // 현재 병합 중인 문장이 너무 짧고, 다음 문장이 있다면 병합 시도
+        if (current_merged_sentence.length() < min_len_merge && !sentences[i].empty()) {
+            // 문장 연결 시 원래 공백이 있었을 가능성이 있으므로, 쉼표 뒤가 아니라면 공백 추가 고려
+            // 간단하게는 그냥 합치거나, 기존 문장의 끝이 구두점인지 확인 후 공백 추가 등 복잡하게 할 수 있음.
+            // 여기서는 단순 병합
+            current_merged_sentence += sentences[i];
+        } else {
+            // 충분히 길거나, 다음 문장이 짧더라도 병합할 수 없는 경우 (다른 기준)
+            merged_result.push_back(trim(current_merged_sentence));
+            current_merged_sentence = sentences[i];
+        }
+    }
+    // 마지막으로 남은 문장 추가
+    merged_result.push_back(trim(current_merged_sentence));
+
+    // 혹시 병합 후에도 너무 짧은 문장이 생길 경우 (예: "안녕.")
+    // 최종적으로 너무 짧은 문장을 제거하거나, 앞/뒤 문장과 강제로 병합하는 로직을 추가할 수 있습니다.
+    // 여기서는 일단 간략하게 구현.
+
+    return merged_result;
+}

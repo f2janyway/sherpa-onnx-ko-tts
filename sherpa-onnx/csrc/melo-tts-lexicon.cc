@@ -305,348 +305,358 @@ class MeloTtsLexicon::Impl {
 
   // --- 자모 분리 로직 ---
 
+  /// @brief vector means split sentence TokenIds contains token_ids, tone_ids
+  /// and ja_bert_vec
+  ///
+  /// struct TokenIDs {
+  ///
+  /// tokens std::vector<int64_t> token_ids
+  ///
+  /// tones std::vector<int64_t> korean 11 or 0?
+  ///
+  /// ja_bert_vec std::vector<float>
+  ///
+  /// ...
+  /// }
+  /// @param _text
+  /// @return  std::vector<TokenIDs>
   std::vector<TokenIDs> ConvertTextToTokenIdsKorean(
       const std::string &_text) const {
     SHERPA_ONNX_LOGE("ConvertTextToTokenIdsKorean called with text: %s",
                      _text.c_str());
+    std::vector<std::string> words;
+    // words = SplitUtf8(_text);
+    words = split_sentences_ko(_text);
+    for (const auto &word : words) {
+      SHERPA_ONNX_LOGE(">>>> ConvertTextToTokenIdsKorean word: %s",
+                       word.c_str());
+    }
 
-    // std::vector<std::int64_t> phoneIds = TextToPhoneId(_text);
+    std::vector<TokenIDs> ans;
+    TokenIDs this_sentence;
 
-    // std::vector<float> ja_bert_vec_final;
-    SHERPA_ONNX_LOGE(
-        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc start g2pk");
-    G2PResult g2p_result = g2pk(_text, *tokenizer_kor_);
-    SHERPA_ONNX_LOGE(
-        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc end g2pk");
+    for (const auto &word : words) {
+      SHERPA_ONNX_LOGE("ConvertTextToTokenIdsKorean word: %s", word.c_str());
+      // split text if long text
+      // std::vector<std::int64_t> phoneIds = TextToPhoneId(_text);
 
-    std::vector<std::int64_t> phoneIds = g2p_result.phone_ids;
-    std::vector<std::int64_t> word2ph = g2p_result.word2ph;
-    std::vector<std::string> phones = g2p_result.phones;
-    {
-      SHERPA_ONNX_LOGE(">>>> ConvertTextToTokenIdsKorean G2pResult");
-      // size
+      // std::vector<float> ja_bert_vec_final;
       SHERPA_ONNX_LOGE(
-          ">>>> ConvertTextToTokenIdsKorean G2pResult phoneIds size: %zu, "
-          "phones size: %zu",
-          phoneIds.size(), phones.size());
-      std::ostringstream phone_stream;
-      int idx = 0;
-      for (auto count : word2ph) {
-        for (int i = 0; i < count; i++) {
-          phone_stream << phoneIds[idx + i] << ",";
+          ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc start g2pk");
+      G2PResult g2p_result = g2pk(word, *tokenizer_kor_);
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc end g2pk");
+
+      std::vector<std::int64_t> phoneIds = g2p_result.phone_ids;
+      std::vector<std::int64_t> word2ph = g2p_result.word2ph;
+      std::vector<std::string> phones = g2p_result.phones;
+      {
+        SHERPA_ONNX_LOGE(">>>> ConvertTextToTokenIdsKorean G2pResult");
+        // size
+        SHERPA_ONNX_LOGE(
+            ">>>> ConvertTextToTokenIdsKorean G2pResult phoneIds size: %zu, "
+            "phones size: %zu",
+            phoneIds.size(), phones.size());
+        std::ostringstream phone_stream;
+        int idx = 0;
+        for (auto count : word2ph) {
+          for (int i = 0; i < count; i++) {
+            phone_stream << phoneIds[idx + i] << ",";
+          }
+          idx += count;
+          phone_stream << "\n";
         }
-        idx += count;
         phone_stream << "\n";
-      }
-      phone_stream << "\n";
-      SHERPA_ONNX_LOGE("%s", phone_stream.str().c_str());
-      std::ostringstream ph_stream;
-      idx = 0;
-      for (auto count : word2ph) {
-        for (int i = 0; i < count; i++) {
-          ph_stream << phones[idx + i] << ",";
+        SHERPA_ONNX_LOGE("%s", phone_stream.str().c_str());
+        std::ostringstream ph_stream;
+        idx = 0;
+        for (auto count : word2ph) {
+          for (int i = 0; i < count; i++) {
+            ph_stream << phones[idx + i] << ",";
+          }
+          idx += count;
+          ph_stream << "\n";
         }
-        idx += count;
         ph_stream << "\n";
-      }
-      ph_stream << "\n";
 
-      SHERPA_ONNX_LOGE("%s", ph_stream.str().c_str());
-      std::ostringstream word2ph_stream;
-      for (auto e : word2ph) {
-        word2ph_stream << e << ",";
-      }
-      SHERPA_ONNX_LOGE(
-          ">>>> ConvertTextToTokenIdsKorean G2pResult word2ph 0 :%s",
-          word2ph_stream.str().c_str());
-      SHERPA_ONNX_LOGE(
-          ">>>> ConvertTextToTokenIdsKorean G2pResult word2ph size: %zu",
-          word2ph.size());
-      // SHERPA_ONNX_LOGE(
-      //     ">>>> ConvertTextToTokenIdsKorean G2pResult ja_bert_vec size: %zu",
-      //     ja_bert_vec.size());
-    }
-
-    /// 여기선 미리 해준다!!!! ja_bert_vec
-    // ADDBland 효과!!!!!!!
-    for (size_t i = 0; i < word2ph.size(); ++i) {
-      word2ph[i] = word2ph[i] * 2;
-      // Python의 print(word2ph)와 동일하게 매 반복마다 출력
-      std::cout << "word2ph (in loop): [";
-      for (size_t j = 0; j < word2ph.size(); ++j) {
-        std::cout << word2ph[j] << (j == word2ph.size() - 1 ? "" : ", ");
-      }
-      std::cout << "]" << std::endl;
-    }
-
-    // word2ph[0] += 1
-    if (!word2ph.empty()) {  // 벡터가 비어있지 않은지 확인
-      word2ph[0] += 1;
-    }
-
-    ///////////////////////////////////
-    ///////////////////////////////////
-    //
-    /// @file offline-tts-vits-impl.h
-    ///  Generate
-    //  여기가 아닌 [addBlank하고 맞춰야함!!!!!]
-    //
-    // if hps.data.add_blank:
-    //     phone = commons.intersperse(phone, 0) << 0을 시작서부터 사이 사이에
-    //     추가 tone = commons.intersperse(tone, 0) language =
-    //     commons.intersperse(language, 0) for i in range(len(word2ph)):
-    //         word2ph[i] = word2ph[i] * 2 << 각 항목 * 2
-    //     word2ph[0] += 1 <<  맨 첫 번째 항목에 1 추가
-
-    // 파이선에서는 이 코드를 지나고 ja_bert를 구해서
-    // bert_model
-    //     res = model(**inputs, output_hidden_states=True)
-    //     res = torch.cat(res["hidden_states"][-3:-2], -1)[0].cpu()
-    //     print("japanese_bert.py get_bert_feature res1", res.shape)
-    //     <<hidden_state[0].shape torch.Size([1, 9, 768]) #
-    //     print("japanese_bert.py get_bert_feature res1", res)
-    //     print("japanese_bert.py get_bert_feature word2ph", word2ph)
-    //     print("japanese_bert.py get_bert_feature inputs[input_ids].shape",
-    //     inputs["input_ids"].shape) print("japanese_bert.py get_bert_feature
-    //     inputs[input_ids].shape[-1]", inputs["input_ids"].shape[-1])
-
-    /////////////////////////////////////
-    // logs
-    // hidden_state.size 13
-    // japanese_bert.py get_bert_feature res1 torch.Size([9, 768])
-    // japanese_bert.py get_bert_feature word2ph [3, 14, 16, 8, 6, 12, 6, 6, 2]
-    // << 각 항목 * 2, 맨 첫 번째 항목에 1 추가 japanese_bert.py
-    // get_bert_feature inputs[input_ids].shape torch.Size([1, 9])
-    // japanese_bert.py get_bert_feature inputs[input_ids].shape[-1] 9
-    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
-    // element.shape: torch.Size([3, 768]) japanese_bert.py get_bert_feature
-    // phone_level_feature  cnt: 0 element.shape: torch.Size([14, 768])
-    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
-    // element.shape: torch.Size([16, 768]) japanese_bert.py get_bert_feature
-    // phone_level_feature  cnt: 0 element.shape: torch.Size([8, 768])
-    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
-    // element.shape: torch.Size([6, 768]) japanese_bert.py get_bert_feature
-    // phone_level_feature  cnt: 0 element.shape: torch.Size([12, 768])
-    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
-    // element.shape: torch.Size([6, 768]) japanese_bert.py get_bert_feature
-    // phone_level_feature  cnt: 0 element.shape: torch.Size([6, 768])
-    // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
-    // element.shape: torch.Size([2, 768])
-    ////////////////////////////////
-
-    // assert inputs["input_ids"].shape[-1] == len(word2ph),
-    // f"{inputs['input_ids'].shape[-1]}/{len(word2ph)}" word2phone = word2ph
-    // phone_level_feature = []
-    // for i in range(len(word2phone)):
-    //     repeat_feature = res[i].repeat(word2phone[i], 1)
-    //     # print("japanese_bert.py get_bert_feature repeat_feature",
-    //     repeat_feature) phone_level_feature.append(repeat_feature) #
-    //     print("japanese_bert.py get_bert_feature phone_level_feature",
-    //     phone_level_feature)
-
-    // cnt = 0
-    // for i in phone_level_feature:
-    //     print("japanese_bert.py get_bert_feature phone_level_feature","
-    //     cnt:",cnt,"element.shape:", i.shape)
-    // phone_level_feature = torch.cat(phone_level_feature, dim=0)
-    // print("japanese_bert.py get_bert_feature phone_level_feature 1",
-    // phone_level_feature, phone_level_feature.shape)
-    ////////////////////////////////////// torch.Size([73, 768])
-
-    // return phone_level_feature.T
-    //
-    /////////////////////////////////
-    /////////////////////////////////
-    std::vector<float> ja_bert_vec = GetJaBert(_text, word2ph);
-    // ja_bert_vec에서 완전히 처리되서 나옴
-    // std::vector<float> ja_bert_vec_final;
-
-
-    //GetJJaBert(_text, word2ph);에서 완전히 처리
-    // int token_idx = 0;
-    // const int ja_bert_vec_size = 768;
-    // std::ostringstream word2ph_stream;
-    // for (auto e : word2ph) {
-    //   word2ph_stream << e << ",";
-    //   // word2ph 값이 1인 경우 해당 토큰은 건너뜁니다.
-    //   // 하지만 ja_bert_vec_input에서 다음 토큰 위치로 이동하기 위해 token_idx는
-    //   // 증가해야 합니다.
-    //   // if (e == 1) {
-    //   //   token_idx++;
-    //   //   continue;
-    //   // }
-
-    //   // ja_bert_vec_input에서 현재 토큰 벡터의 시작 위치를 계산합니다.
-    //   int start_idx_in_input = token_idx * ja_bert_vec_size;
-
-    //   // ja_bert_vec_input의 끝을 벗어나지 않도록 범위 체크
-    //   if (start_idx_in_input + ja_bert_vec_size > ja_bert_vec.size()) {
-    //     // std::cerr << "Error: Out of bounds access for ja_bert_vec_input at
-    //     // token_idx " << token_idx << std::endl; SHERPA_ONNX_LOGE("Error: Out
-    //     // of bounds access for ja_bert_vec_input at token_idx " << token_idx);
-    //     SHERPA_ONNX_LOGE(
-    //         ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_size: %zu",
-    //         ja_bert_vec_size);
-    //     SHERPA_ONNX_LOGE(
-    //         ">>>> ConvertTextToTokenIdsKorean ja_bert_vec.size(): %zu",
-    //         ja_bert_vec.size());
-    //     SHERPA_ONNX_LOGE(
-    //         ">>>> ConvertTextToTokenIdsKorean Error: Out of bounds access for "
-    //         "ja_bert_vec_input at token_idx %zu",
-    //         token_idx);
-    //     break;  // 또는 적절한 오류 처리
-    //   }
-
-    //   // 현재 토큰에 해당하는 벡터의 시작과 끝 이터레이터를 가져옵니다.
-    //   auto it_begin = ja_bert_vec.begin() + start_idx_in_input;
-    //   auto it_end = ja_bert_vec.begin() + start_idx_in_input + ja_bert_vec_size;
-
-    //   // 'e'번 반복하여 ja_bert_vec_final에 벡터를 통째로 추가합니다.
-    //   for (int i = 0; i < e; i++) {
-    //     ja_bert_vec_final.insert(ja_bert_vec_final.end(), it_begin, it_end);
-    //     // SHERPA_ONNX_LOGE(
-    //     //     ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size:
-    //     //     %zu,tokenIdx: %d", ja_bert_vec_final.size(),token_idx);
-    //   }
-    //   token_idx++;
-    // }
-    // SHERPA_ONNX_LOGE(">>>> word2ph addblanks sequence: %s",
-    //                  word2ph_stream.str().c_str());
-    SHERPA_ONNX_LOGE(
-        ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size: %zu",
-        ja_bert_vec.size());
-
-    SHERPA_ONNX_LOGE(
-        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc phoneIds size: "
-        "%zu",
-        phoneIds.size());
-    SHERPA_ONNX_LOGE(
-        ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc "
-        "ja_bert_vec_final size: %zu",
-        ja_bert_vec.size());
-    // print phoneme_ids for debugging
-
-    std::vector<TokenIDs> result_token_ids_vec;
-    // std::vector<std::int64_t> toneIds = CreateToneKo(phoneIds.size());
-    std::vector<std::int64_t> toneIds =
-        std::vector<std::int64_t>(phoneIds.size(), 11);
-
-    std::ostringstream oss;
-    oss << "real_ja_bert10: [";
-    for (size_t i = 0; i < 10; ++i) {
-      oss << ja_bert_vec[i] << ",";
-    }
-    oss << "]";
-    SHERPA_ONNX_LOGE("%s", oss.str().c_str());
-    // SHERPA_ONNX_LOGE("=======THIS TEMP JARBERT as 0 =======");
-
-    // std::vector<float> temp_ja_bert_vec_final =
-    //     std::vector<float>(ja_bert_vec_final.size(), 0.0);
-    SHERPA_ONNX_LOGE(
-        ">>>> ConvertTextToTokenIdsKorean 768 * phoneIds size: %zu = %zu "
-        "should  same ja_bert_vec_final.size :%zu",
-        phoneIds.size(), 768 * phoneIds.size(), ja_bert_vec.size());
-    result_token_ids_vec.emplace_back(std::move(phoneIds), std::move(toneIds),
-                                      std::move(ja_bert_vec));
-    if (debug_) {
-      std::ostringstream oss;
-      oss << "phoneme_ids: [";
-      for (size_t i = 0; i < result_token_ids_vec[0].tokens.size(); ++i) {
-        oss << result_token_ids_vec[0].tokens[i];
-        if (i < result_token_ids_vec[0].tokens.size() - 1) {
-          oss << ", ";
+        SHERPA_ONNX_LOGE("%s", ph_stream.str().c_str());
+        std::ostringstream word2ph_stream;
+        for (auto e : word2ph) {
+          word2ph_stream << e << ",";
         }
+        SHERPA_ONNX_LOGE(
+            ">>>> ConvertTextToTokenIdsKorean G2pResult word2ph 0 :%s",
+            word2ph_stream.str().c_str());
+        SHERPA_ONNX_LOGE(
+            ">>>> ConvertTextToTokenIdsKorean G2pResult word2ph size: %zu",
+            word2ph.size());
+        // SHERPA_ONNX_LOGE(
+        //     ">>>> ConvertTextToTokenIdsKorean G2pResult ja_bert_vec size:
+        //     %zu", ja_bert_vec.size());
+      }
+
+      /// 여기선 미리 해준다!!!! ja_bert_vec
+      // ADDBland 효과!!!!!!!
+      for (size_t i = 0; i < word2ph.size(); ++i) {
+        word2ph[i] = word2ph[i] * 2;
+        // Python의 print(word2ph)와 동일하게 매 반복마다 출력
+        std::cout << "word2ph (in loop): [";
+        for (size_t j = 0; j < word2ph.size(); ++j) {
+          std::cout << word2ph[j] << (j == word2ph.size() - 1 ? "" : ", ");
+        }
+        std::cout << "]" << std::endl;
+      }
+
+      // word2ph[0] += 1
+      if (!word2ph.empty()) {  // 벡터가 비어있지 않은지 확인
+        word2ph[0] += 1;
+      }
+
+      ///////////////////////////////////
+      ///////////////////////////////////
+      //
+      /// @file offline-tts-vits-impl.h
+      ///  Generate
+      //  여기가 아닌 [addBlank하고 맞춰야함!!!!!]
+      //
+      // if hps.data.add_blank:
+      //     phone = commons.intersperse(phone, 0) << 0을 시작서부터 사이 사이에
+      //     추가 tone = commons.intersperse(tone, 0) language =
+      //     commons.intersperse(language, 0) for i in range(len(word2ph)):
+      //         word2ph[i] = word2ph[i] * 2 << 각 항목 * 2
+      //     word2ph[0] += 1 <<  맨 첫 번째 항목에 1 추가
+
+      // 파이선에서는 이 코드를 지나고 ja_bert를 구해서
+      // bert_model
+      //     res = model(**inputs, output_hidden_states=True)
+      //     res = torch.cat(res["hidden_states"][-3:-2], -1)[0].cpu()
+      //     print("japanese_bert.py get_bert_feature res1", res.shape)
+      //     <<hidden_state[0].shape torch.Size([1, 9, 768]) #
+      //     print("japanese_bert.py get_bert_feature res1", res)
+      //     print("japanese_bert.py get_bert_feature word2ph", word2ph)
+      //     print("japanese_bert.py get_bert_feature inputs[input_ids].shape",
+      //     inputs["input_ids"].shape) print("japanese_bert.py get_bert_feature
+      //     inputs[input_ids].shape[-1]", inputs["input_ids"].shape[-1])
+
+      /////////////////////////////////////
+      // logs
+      // hidden_state.size 13
+      // japanese_bert.py get_bert_feature res1 torch.Size([9, 768])
+      // japanese_bert.py get_bert_feature word2ph [3, 14, 16, 8, 6, 12, 6, 6,
+      // 2]
+      // << 각 항목 * 2, 맨 첫 번째 항목에 1 추가 japanese_bert.py
+      // get_bert_feature inputs[input_ids].shape torch.Size([1, 9])
+      // japanese_bert.py get_bert_feature inputs[input_ids].shape[-1] 9
+      // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+      // element.shape: torch.Size([3, 768]) japanese_bert.py get_bert_feature
+      // phone_level_feature  cnt: 0 element.shape: torch.Size([14, 768])
+      // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+      // element.shape: torch.Size([16, 768]) japanese_bert.py get_bert_feature
+      // phone_level_feature  cnt: 0 element.shape: torch.Size([8, 768])
+      // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+      // element.shape: torch.Size([6, 768]) japanese_bert.py get_bert_feature
+      // phone_level_feature  cnt: 0 element.shape: torch.Size([12, 768])
+      // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+      // element.shape: torch.Size([6, 768]) japanese_bert.py get_bert_feature
+      // phone_level_feature  cnt: 0 element.shape: torch.Size([6, 768])
+      // japanese_bert.py get_bert_feature phone_level_feature  cnt: 0
+      // element.shape: torch.Size([2, 768])
+      ////////////////////////////////
+
+      // assert inputs["input_ids"].shape[-1] == len(word2ph),
+      // f"{inputs['input_ids'].shape[-1]}/{len(word2ph)}" word2phone = word2ph
+      // phone_level_feature = []
+      // for i in range(len(word2phone)):
+      //     repeat_feature = res[i].repeat(word2phone[i], 1)
+      //     # print("japanese_bert.py get_bert_feature repeat_feature",
+      //     repeat_feature) phone_level_feature.append(repeat_feature) #
+      //     print("japanese_bert.py get_bert_feature phone_level_feature",
+      //     phone_level_feature)
+
+      // cnt = 0
+      // for i in phone_level_feature:
+      //     print("japanese_bert.py get_bert_feature phone_level_feature","
+      //     cnt:",cnt,"element.shape:", i.shape)
+      // phone_level_feature = torch.cat(phone_level_feature, dim=0)
+      // print("japanese_bert.py get_bert_feature phone_level_feature 1",
+      // phone_level_feature, phone_level_feature.shape)
+      ////////////////////////////////////// torch.Size([73, 768])
+
+      // return phone_level_feature.T
+      //
+      /////////////////////////////////
+      /////////////////////////////////
+      std::vector<float> ja_bert_vec = GetJaBert(word, word2ph);
+      // ja_bert_vec에서 완전히 처리되서 나옴
+      // std::vector<float> ja_bert_vec_final;
+
+      // GetJJaBert(_text, word2ph);에서 완전히 처리
+      //  int token_idx = 0;
+      //  const int ja_bert_vec_size = 768;
+      //  std::ostringstream word2ph_stream;
+      //  for (auto e : word2ph) {
+      //    word2ph_stream << e << ",";
+      //    // word2ph 값이 1인 경우 해당 토큰은 건너뜁니다.
+      //    // 하지만 ja_bert_vec_input에서 다음 토큰 위치로 이동하기 위해
+      //    token_idx는
+      //    // 증가해야 합니다.
+      //    // if (e == 1) {
+      //    //   token_idx++;
+      //    //   continue;
+      //    // }
+
+      //   // ja_bert_vec_input에서 현재 토큰 벡터의 시작 위치를 계산합니다.
+      //   int start_idx_in_input = token_idx * ja_bert_vec_size;
+
+      //   // ja_bert_vec_input의 끝을 벗어나지 않도록 범위 체크
+      //   if (start_idx_in_input + ja_bert_vec_size > ja_bert_vec.size()) {
+      //     // std::cerr << "Error: Out of bounds access for ja_bert_vec_input
+      //     at
+      //     // token_idx " << token_idx << std::endl; SHERPA_ONNX_LOGE("Error:
+      //     Out
+      //     // of bounds access for ja_bert_vec_input at token_idx " <<
+      //     token_idx); SHERPA_ONNX_LOGE(
+      //         ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_size: %zu",
+      //         ja_bert_vec_size);
+      //     SHERPA_ONNX_LOGE(
+      //         ">>>> ConvertTextToTokenIdsKorean ja_bert_vec.size(): %zu",
+      //         ja_bert_vec.size());
+      //     SHERPA_ONNX_LOGE(
+      //         ">>>> ConvertTextToTokenIdsKorean Error: Out of bounds access
+      //         for " "ja_bert_vec_input at token_idx %zu", token_idx);
+      //     break;  // 또는 적절한 오류 처리
+      //   }
+
+      //   // 현재 토큰에 해당하는 벡터의 시작과 끝 이터레이터를 가져옵니다.
+      //   auto it_begin = ja_bert_vec.begin() + start_idx_in_input;
+      //   auto it_end = ja_bert_vec.begin() + start_idx_in_input +
+      //   ja_bert_vec_size;
+
+      //   // 'e'번 반복하여 ja_bert_vec_final에 벡터를 통째로 추가합니다.
+      //   for (int i = 0; i < e; i++) {
+      //     ja_bert_vec_final.insert(ja_bert_vec_final.end(), it_begin,
+      //     it_end);
+      //     // SHERPA_ONNX_LOGE(
+      //     //     ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size:
+      //     //     %zu,tokenIdx: %d", ja_bert_vec_final.size(),token_idx);
+      //   }
+      //   token_idx++;
+      // }
+      // SHERPA_ONNX_LOGE(">>>> word2ph addblanks sequence: %s",
+      //                  word2ph_stream.str().c_str());
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean ja_bert_vec_final size: %zu",
+          ja_bert_vec.size());
+
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc phoneIds size: "
+          "%zu",
+          phoneIds.size());
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean melo-tts-lexicon.cc "
+          "ja_bert_vec_final size: %zu",
+          ja_bert_vec.size());
+      // print phoneme_ids for debugging
+
+      std::vector<TokenIDs> result_token_ids_vec;
+      // std::vector<std::int64_t> toneIds = CreateToneKo(phoneIds.size());
+      std::vector<std::int64_t> toneIds =
+          std::vector<std::int64_t>(phoneIds.size(), 11);
+
+      std::ostringstream oss;
+      oss << "real_ja_bert10: [";
+      for (size_t i = 0; i < 10; ++i) {
+        oss << ja_bert_vec[i] << ",";
       }
       oss << "]";
       SHERPA_ONNX_LOGE("%s", oss.str().c_str());
+      // SHERPA_ONNX_LOGE("=======THIS TEMP JARBERT as 0 =======");
+
+      // std::vector<float> temp_ja_bert_vec_final =
+      //     std::vector<float>(ja_bert_vec_final.size(), 0.0);
+      SHERPA_ONNX_LOGE(
+          ">>>> ConvertTextToTokenIdsKorean 768 * phoneIds size: %zu = %zu "
+          "should  same ja_bert_vec_final.size :%zu",
+          phoneIds.size(), 768 * phoneIds.size(), ja_bert_vec.size());
+      this_sentence.tokens.insert(this_sentence.tokens.end(), phoneIds.begin(),
+                                  phoneIds.end());
+      this_sentence.tones.insert(this_sentence.tones.end(), toneIds.begin(),
+                                 toneIds.end());
+      this_sentence.ja_bert_vec.insert(this_sentence.ja_bert_vec.end(),
+                                       ja_bert_vec.begin(), ja_bert_vec.end());
+
+      this_sentence.sentences.push_back(word);
+
+      
+      // if (word == "." || word == "!" || word == "?" || word == "," ||
+      //     word == "。" || word == "！" || word == "？" || word == "，") {
+        ans.push_back(std::move(this_sentence));
+        this_sentence = {};
+      // }
+      // result_token_ids_vec.emplace_back(std::move(phoneIds),
+      // std::move(toneIds),
+      //                                   std::move(ja_bert_vec));
+      // if (debug_) {
+      //   std::ostringstream oss;
+      //   oss << "phoneme_ids: [";
+      //   for (size_t i = 0; i < result_token_ids_vec[0].tokens.size(); ++i) {
+      //     oss << result_token_ids_vec[0].tokens[i];
+      //     if (i < result_token_ids_vec[0].tokens.size() - 1) {
+      //       oss << ", ";
+      //     }
+      //   }
+      //   oss << "]";
+      //   SHERPA_ONNX_LOGE("%s", oss.str().c_str());
+      // }
     }
-    return result_token_ids_vec;
-
-    // 입력 텍스트를 소문자로 변환 (영어 대응)
-    // std::string text = ToLowerCase(_text);
-
-    // 단일 문장을 처리할 경우 보통 하나의 TokenIDs 객체를 담은 벡터를
-    // 반환합니다.
-    // std::vector<TokenIDs>
-    //     result_token_ids_vec;
-
-    // 파이썬 로그에서 추출한 phone ID 시퀀스
-    // ['_', 'ᄇ', 'ᅡ', 'ᆯ', 'ᄇ', 'ᅡ', 'ᄇ', 'ᅡ', 'ᆯ', 'ᄇ', 'ᅡ', '_']
-    // -> [0, 169, 181, 205, 169, 181, 169, 181, 205, 169, 181, 0]
-    // std::vector<int64_t> phoneme_ids;
-
-    // std::string text = ToLowerCase(_text);
-
-    // SHERPA_ONNX_LOGE(">>> ConvertTextToTokenIdsKorean called with text: %s",
-    //                  text.c_str());
-    // std::vector<std::string> splited_ko_text = JamoUtils::split(text);
-
-    // SHERPA_ONNX_LOGE(">>> add phoneme_ids: start");
-    // // show all tokens for debugging in token2id_
-    // for (const auto &pair : token2id_) {
-    //   SHERPA_ONNX_LOGE(">>> token2id_ key: %s, value: %d",
-    //   pair.first.c_str(),
-    //                    pair.second);
+    // if (!this_sentence.tokens.empty()) {
+    //   ans.push_back(std::move(this_sentence));
     // }
+    // print this_sentence all
+    for (int i = 0; i < ans.size(); i++) {
+      std::ostringstream oss;
+      oss << "phoneme_ids: [";
+      for (size_t j = 0; j < ans[i].tokens.size(); ++j) {
+        oss << ans[i].tokens[j];
+        if (j < ans[i].tokens.size() - 1) {
+          oss << ", ";
+        }
+      }
+      oss << "]\n";
+      SHERPA_ONNX_LOGE("%s", oss.str().c_str());
+      oss.clear();
+      oss << "tones: [";
+      for (size_t j = 0; j < ans[i].tones.size(); ++j) {
+        oss << ans[i].tones[j];
+        if (j < ans[i].tones.size() - 1) {
+          oss << ", ";
+        }
+      }
+      oss << "]\n";
+      SHERPA_ONNX_LOGE("%s", oss.str().c_str());
+      oss.clear();
+      oss << "ja_bert_vec.size: [";
+      // for (size_t j = 0; j < ans[i].ja_bert_vec.size(); ++j) {
+      oss << ans[i].ja_bert_vec.size();
+      // if (j < ans[i].ja_bert_vec.size() - 1) {
+      //   oss << ", ";
+      // }
+      oss << "]\n";
+      // }
+      SHERPA_ONNX_LOGE("%s", oss.str().c_str());
+      oss.clear();
+      oss << "sentences: [";
+      for (size_t j = 0; j < ans[i].sentences.size(); ++j) {
+        oss << ans[i].sentences[j];
+        if (j < ans[i].sentences.size() - 1) {
+          oss << ", ";
+        }
+      }
+      oss << "]\n";
+      SHERPA_ONNX_LOGE("%s", oss.str().c_str());
+    }
 
-    // // show token2id_ for debugging
-    // SHERPA_ONNX_LOGE(">>> token2id_ size: %zu", token2id_.size());
-    // for (const auto &ko : splited_ko_text) {
-    //   SHERPA_ONNX_LOGE(">>> processing Jamo: %s", ko.c_str());
-    //   // if (ko == "") {
-    //   //   phoneme_ids.push_back(0);
-    //   //   continue;
-    //   // }
-    //   // Use find() instead of at() to avoid std::out_of_range exception
-    //   auto it = token2id_.find(ko);
-    //   if (it != token2id_.end()) {
-    //     // Key found, add its associated ID
-    //     phoneme_ids.push_back(it->second);
-    //   } else {
-    //     // Key not found. This is where your problem is.
-    //     // You need to decide how to handle missing Jamo.
-    //     // Option 1: Log an error and skip this Jamo.
-    //     SHERPA_ONNX_LOGE(
-    //         "Error: Jamo '%s' not found in token2id_ map. Skipping.",
-    //         ko.c_str());
-    //     // Option 2: Add a special "unknown" token ID if you have one.
-    //     // phoneme_ids.push_back(UNKNOWN_TOKEN_ID);
-    //     // Option 3: If this should never happen, you might want to throw a
-    //     // controlled error or assertion. For now, logging and skipping is a
-    //     // safe approach to prevent crash.
-    //   }
-    // }
-    // SHERPA_ONNX_LOGE(">>> add phoneme_ids: end");
-
-    // std::vector<int64_t> tone_ids(phoneme_ids.size(),
-    //                               0);  // 모든 톤 ID를 기본값으로 설정
-
-    // SHERPA_ONNX_LOGE("result_token_ids_vec size: %zu",
-    //                  result_token_ids_vec.size());
-    // result_token_ids_vec.emplace_back(std::move(phoneme_ids),
-    //                                   std::move(tone_ids));
-
-    // // print phoneme_ids for debugging
-    // // if (debug_) {
-    // //   std::ostringstream oss;
-    // //   oss << "phoneme_ids: [";
-    // //   for (size_t i = 0; i < result_token_ids_vec[0].tokens.size(); ++i) {
-    // //     oss << result_token_ids_vec[0].tokens[i];
-    // //     if (i < result_token_ids_vec[0].tokens.size() - 1) {
-    // //       oss << ", ";
-    // //     }
-    // //   }
-    // //   oss << "]";
-    // //   SHERPA_ONNX_LOGE("%s", oss.str().c_str());
-    // // }
-    // SHERPA_ONNX_LOGE("ConvertTextToTokenIdsKorean completed");
-    // std::cout << "phoneme_ids: [";
-    // for (const auto &id : phoneme_ids) {
-    //   std::cout << id << ", ";
-    // }
-    // std::cout << std::endl;
-
-    // return result_token_ids_vec;
+    return ans;
   }
 
   // ** 기존 ConvertTextToTokenIds 함수를 수정 **

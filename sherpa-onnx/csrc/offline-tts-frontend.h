@@ -17,6 +17,7 @@ namespace sherpa_onnx {
 /// @param tokens std::vector<int64_t> token_ids
 /// @param tones std::vector<int64_t> korean 11 or 0?
 /// @param ja_bert_vec std::vector<float>
+/// @param sentences std::vector<std::string>
 struct TokenIDs {
   TokenIDs() = default;
 
@@ -32,10 +33,13 @@ struct TokenIDs {
        {}
   TokenIDs(std::vector<int64_t> tokens,  // NOLINT
            std::vector<int64_t> tones,
-           std::vector<float> ja_bert_vec)  // NOLINT
+           std::vector<float> ja_bert_vec,
+           std::vector<std::string> sentences
+          )  // NOLINT
       : tokens{std::move(tokens)},
         tones{std::move(tones)},
-        ja_bert_vec{std::move(ja_bert_vec)} {}
+        ja_bert_vec{std::move(ja_bert_vec)},
+        sentences{std::move(sentences)} {}
 
   std::string ToString() const;
 
@@ -45,6 +49,7 @@ struct TokenIDs {
   std::vector<int64_t> tones;
 
   std::vector<float> ja_bert_vec;
+  std::vector<std::string> sentences;
 };
 
 class OfflineTtsFrontend {

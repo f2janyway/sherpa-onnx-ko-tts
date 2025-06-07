@@ -562,7 +562,8 @@ Ort::Value OfflineTtsVitsModel::Run(Ort::Value x, Ort::Value tones,
                                     int64_t sid /*= 0*/,
                                     float speed /*= 1.0*/) const {
   SHERPA_ONNX_LOGE(
-      ">>>> OfflineTtsVitsModel::Run() csrc/offline-tts-vits-model.cc");
+      ">>>> no ja_bert OfflineTtsVitsModel::Run() "
+      "csrc/offline-tts-vits-model.cc");
   return impl_->Run(std::move(x), std::move(tones), sid, speed);
 }
 
