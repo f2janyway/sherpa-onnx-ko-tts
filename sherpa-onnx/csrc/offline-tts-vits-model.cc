@@ -277,8 +277,8 @@ class OfflineTtsVitsModel::Impl {
         Ort::Value::CreateTensor(memory_info, &sid, 1, &scale_shape, 1);
 
     std::vector<Ort::Value> inputs;
-    // inputs.reserve(7);
-    inputs.reserve(8);
+    inputs.reserve(7);
+    // inputs.reserve(8);
     inputs.push_back(std::move(x));
     inputs.push_back(std::move(x_length));
     inputs.push_back(std::move(tones));
@@ -286,7 +286,7 @@ class OfflineTtsVitsModel::Impl {
     inputs.push_back(std::move(noise_scale_tensor));    // Reordered
     inputs.push_back(std::move(length_scale_tensor));   // Reordered
     inputs.push_back(std::move(noise_scale_w_tensor));  // Reordered
-    inputs.push_back(std::move(ja_bert_tensor));
+    // inputs.push_back(std::move(ja_bert_tensor));
     SHERPA_ONNX_LOGE(
         ">>>>origin OfflineTtsVitsModel::Impl::Run() "
         "csrc/offline-tts-vits-model.cc "

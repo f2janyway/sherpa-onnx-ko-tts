@@ -932,6 +932,16 @@ std::string TextToPhone(const std::string& _text) {
     std::wcout << L"rs: " << rs << std::endl;
     return wstring_to_utf8(rs);
 }
+int64_t charToPhoneId(const wchar_t& _char) {
+    auto it = jamo_to_id.find(_char);
+    if (it != jamo_to_id.end()) {
+        return it->second;
+    }
+    else {
+        // UNK 처리 or 스킵
+        return 218; // 예: UNK == 218
+    }
+}
 std::vector<int64_t> TextToPhoneId(const std::string &_text, bool isFullSentence) {
   if (table.empty()) {
     // table = parse_table_csv("table.csv");
@@ -1089,6 +1099,7 @@ G2PResult g2pk(const std::string& norm_text, WordPieceTokenizer& tokenizer) {
         else if (punctuation.count(text)) {
             phs.push_back(text);
             word2ph_local.push_back(1);
+            ph_ids.push_back(charToPhoneId(text[0]));
             continue;
         }
 

@@ -50,23 +50,23 @@ void WordPieceTokenizer::load_vocab(std::istream &vocab_file) {
   // }
 }
 
-std::vector<std::string> WordPieceTokenizer::basic_tokenize(
-    const std::string &text) {
-        SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::basic_tokenize start text: %s", text.c_str());
-  std::string processed = text;
-  if (do_lower_case) {
-    processed = to_lower(text);
-  }
+// std::vector<std::string> WordPieceTokenizer::basic_tokenize(
+//     const std::string &text) {
+//         SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::basic_tokenize start text: %s", text.c_str());
+//   std::string processed = text;
+//   if (do_lower_case) {
+//     processed = to_lower(text);
+//   }
 
-  std::vector<std::string> tokens;
-  std::istringstream iss(processed);
-  std::string token;
-  while (iss >> token) {
-    tokens.push_back(token);
-  }
-  SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::basic_tokenize end");
-  return tokens;
-}
+//   std::vector<std::string> tokens;
+//   std::istringstream iss(processed);
+//   std::string token;
+//   while (iss >> token) {
+//     tokens.push_back(token);
+//   }
+//   SHERPA_ONNX_LOGE( ">>>> WordPieceTokenizer::basic_tokenize end");
+//   return tokens;
+// }
 
 std::vector<std::string> WordPieceTokenizer::wordpiece_tokenize(
     const std::string &token) {
