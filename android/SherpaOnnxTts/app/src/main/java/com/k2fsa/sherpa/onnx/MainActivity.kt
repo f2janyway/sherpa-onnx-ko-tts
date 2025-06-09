@@ -297,13 +297,15 @@ class MainActivity : AppCompatActivity() {
 //         modelName = "ko_KO-kss_low.onnx"
 //         modelDir = "vits-mimic3-ko_KO-kss_low"
 //         dataDir = "vits-mimic3-ko_KO-kss_low/espeak-ng-data"
+        var vocab = ""
+        var ja_bert_model = ""
 
         modelDir = "melo"
         modelName = "tts_model_korean.onnx"
-//        modelName = "model_korean_ja_bert.onnx"
         lexicon = "lexicon.txt"
-        var vocab = "vocab.txt"
-        var ja_bert_model = "korean_ja_bert_model_3_1.onnx"
+         vocab = "vocab.txt"
+        ja_bert_model = "korean_ja_bert_model_3_1.onnx"
+
 //        modelName = "melo_en_model.onnx"
 //        lexicon = "lexicon_en.txt"
 //        dictDir = "melo/dict"

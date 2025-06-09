@@ -31,6 +31,7 @@ namespace sherpa_onnx {
 
 class OfflineTtsVitsModel::Impl {
  public:
+ 
   explicit Impl(const OfflineTtsModelConfig &config)
       : config_(config),
         env_(ORT_LOGGING_LEVEL_ERROR),
@@ -568,7 +569,7 @@ Ort::Value OfflineTtsVitsModel::Run(Ort::Value x, Ort::Value tones,
 }
 
 Ort::Value OfflineTtsVitsModel::Run(const std::string &text,
-                                    std::vector<float> &ja_bert_vec,
+                                     std::vector<float> &ja_bert_vec,
                                     Ort::Value x, Ort::Value tones, int64_t sid,
                                     float speed) {
   SHERPA_ONNX_LOGE(
