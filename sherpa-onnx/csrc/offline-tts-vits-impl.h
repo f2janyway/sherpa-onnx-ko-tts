@@ -304,10 +304,10 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
 
     if (config_.max_num_sentences <= 0 || x_size <= config_.max_num_sentences) {
       SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits create 0");
-      std::vector<float> ja_bert_vec = token_ids[0].ja_bert_vec;
-      auto ans = ProcessWithJaBert(text, ja_bert_vec, phone_ids[0], tones[0],
+      // std::vector<float> ja_bert_vec = token_ids[0].ja_bert_vec;
+      auto ans = ProcessWithJaBert(text, ja_berts[0], phone_ids[0], tones[0],
                                    sid, speed);
-      SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits created 0");
+      SHERPA_ONNX_LOGE(">>> Process all sentences offline-tts-vits created end 0");
       if (callback) {
         SHERPA_ONNX_LOGE(
             ">>> Process all sentences offline-tts-vits callback 0");
@@ -443,55 +443,55 @@ class OfflineTtsVitsImpl : public OfflineTtsImpl {
 
     //       return result;  // 콜백의 반환값을 SynthesizerProcessor로 전달
     //     });
-    // GeneratedAudio ans;
+    GeneratedAudio ans;
 
-    // int32_t should_continue = 1;
+    int32_t should_continue = 1;
 
     // // int32_t k = 0;
 
     // SHERPA_ONNX_LOGE("Text is too long Start processing sentences ");
 
-    // for (int32_t b = 0; b != token_ids.size(); ++b) {
+    for (int32_t b = 0; b != token_ids.size(); ++b) {
 
-    //   SHERPA_ONNX_LOGE("Generate inner Process start %d",b);
-    //   std::string text =   sentences[b];
-    //   std::vector<float> ja_bert_vec = ja_berts[b];
-    //   std::vector<int64_t> token_ids = phone_ids[b];
-    //   std::vector<int64_t> tones_vec = tones[b];
-    //   // auto audio = Process(*text,)
-    //   auto audio = Process(text, ja_bert_vec, token_ids, tones_vec, sid,
-    //   speed); SHERPA_ONNX_LOGE("Generate inner Process end %d",b);
-    //   // auto audio = Process(batch_x, batch_tones, sid, speed);
-    //   ans.sample_rate = audio.sample_rate;
-    //   ans.samples.insert(ans.samples.end(), audio.samples.begin(),
-    //                      audio.samples.end());
-    //   if (callback) {
-    //     should_continue = callback(audio.samples.data(),
-    //     audio.samples.size(),
-    //                                (b + 1) * 1.0 / token_ids.size());
-    //     // Caution(fangjun): audio is freed when the callback returns, so
-    //     users
-    //     // should copy the data if they want to access the data after
-    //     // the callback returns to avoid segmentation fault.
-    //   }
-    // }
-    GeneratedAudio ans = synthesizer_processor_->ProcessAllSentences(
-            sentences,
-            ja_berts,
-            phone_ids,
-            tones,
-            sid,
-            speed,
-            [callback](const float* samples_data, int32_t samples_size, float progress) -> int32_t {
-                // ... 콜백 로직 ...
-                int32_t result = 1;
-                if (callback) {
-                    result = callback(samples_data, samples_size, progress);
-                }
-                return result;
-            }
-        );
-        return ans;
+      SHERPA_ONNX_LOGE("Generate inner Process start %d",b);
+      std::string text =   sentences[b];
+      std::vector<float> ja_bert_vec = ja_berts[b];
+      std::vector<int64_t> token_ids = phone_ids[b];
+      std::vector<int64_t> tones_vec = tones[b];
+      // auto audio = Process(*text,)
+      auto audio = ProcessWithJaBert(text, ja_bert_vec, token_ids, tones_vec, sid,
+      speed); SHERPA_ONNX_LOGE("Generate inner Process end %d",b);
+      // auto audio = Process(batch_x, batch_tones, sid, speed);
+      ans.sample_rate = audio.sample_rate;
+      ans.samples.insert(ans.samples.end(), audio.samples.begin(),
+                         audio.samples.end());
+      if (callback) {
+        should_continue = callback(audio.samples.data(),
+        audio.samples.size(),
+                                   (b + 1) * 1.0 / token_ids.size());
+        // Caution(fangjun): audio is freed when the callback returns, so
+        // users
+        // should copy the data if they want to access the data after
+        // the callback returns to avoid segmentation fault.
+      }
+    }
+    // GeneratedAudio ans = synthesizer_processor_->ProcessAllSentences(
+    //         sentences,
+    //         ja_berts,
+    //         phone_ids,
+    //         tones,
+    //         sid,
+    //         speed,
+    //         [callback](const float* samples_data, int32_t samples_size, float progress) -> int32_t {
+    //             // ... 콜백 로직 ...
+    //             int32_t result = 1;
+    //             if (callback) {
+    //                 result = callback(samples_data, samples_size, progress);
+    //             }
+    //             return result;
+    //         }
+    //     );
+    //     return ans;
     SHERPA_ONNX_LOGE("Finished processing sentences");
 
     SHERPA_ONNX_LOGE("Start processing the remaining sentences");

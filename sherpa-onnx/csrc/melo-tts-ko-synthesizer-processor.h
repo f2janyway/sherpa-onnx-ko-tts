@@ -36,26 +36,57 @@ namespace sherpa_onnx {
 class ThreadPool {
  public:
   ThreadPool(size_t num_threads) : stop_(false) {
-    for (size_t i = 0; i < num_threads; ++i) {
-      workers_.emplace_back([this] {
-        for (;;) {
-          std::function<void()> task;
-          {
-            std::unique_lock<std::mutex> lock(queue_mutex_);
+        SHERPA_ONNX_LOGE("ThreadPool: Creating %zu worker threads.", num_threads);
+        for (size_t i = 0; i < num_threads; ++i) {
+            workers_.emplace_back([this, i] { // Capture i for logging
+                SHERPA_ONNX_LOGE("ThreadPool: Worker thread %zu started.", i);
+                for (;;) {
+                     std::function<void()> task;
+                     {
+                        std::unique_lock<std::mutex> lock(queue_mutex_);
             // Wait until there's a task or the pool is stopped
-            condition_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
+                        condition_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
             // If stopped and no more tasks, exit
-            if (stop_ && tasks_.empty()) {
-              return;
-            }
-            task = std::move(tasks_.front());
-            tasks_.pop();
-          }
-          task();  // Execute the task
+                        if (stop_ && tasks_.empty()) {
+                            return;
+                        }
+                        task = std::move(tasks_.front());
+                        tasks_.pop();
+                     }
+                     task();
+                }
+                SHERPA_ONNX_LOGE("ThreadPool: Worker thread %zu stopped.", i);
+            });
         }
-      });
+        SHERPA_ONNX_LOGE("ThreadPool: All worker threads enqueued.");
     }
-  }
+
+    ~ThreadPool() {
+        SHERPA_ONNX_LOGE("ThreadPool: Destructor called. Stopping threads.");
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+            stop_ = true;
+        }
+        condition_.notify_all();
+        int i = 0;
+        for (std::thread& worker : workers_) {
+            if (worker.joinable()) {
+                SHERPA_ONNX_LOGE("ThreadPool: Attempting to join worker thread %d...", i);
+                try {
+                    worker.join();
+                    SHERPA_ONNX_LOGE("ThreadPool: Worker thread %d joined successfully.", i);
+                } catch (const std::exception& e) {
+                    SHERPA_ONNX_LOGE("ThreadPool: Exception while joining worker thread %d: %s", i, e.what());
+                } catch (...) {
+                    SHERPA_ONNX_LOGE("ThreadPool: Unknown exception while joining worker thread %d.", i);
+                }
+            } else {
+                SHERPA_ONNX_LOGE("ThreadPool: Worker thread %d not joinable, skipping.", i);
+            }
+            i++;
+        }
+        SHERPA_ONNX_LOGE("ThreadPool: Destructor finished.");
+    }
 
   // Add a new task to the pool
   template <class F, class... Args>
@@ -79,34 +110,34 @@ class ThreadPool {
   }
 
   // Stop all threads and join them
-  ~ThreadPool() {
-    SHERPA_ONNX_LOGE("ThreadPool destructor called.");
-    {
-      std::unique_lock<std::mutex> lock(queue_mutex_);
-      stop_ = true;
-    }
-    condition_.notify_all();  // Notify all waiting workers to stop
-    int i = 0;
-    for (std::thread &worker : workers_) {
-      if (worker.joinable()) {
-        SHERPA_ONNX_LOGE("Joining worker thread %d...", i);
-        try {
-          worker.join();
-          SHERPA_ONNX_LOGE("Worker thread %d joined successfully.", i);
-        } catch (const std::exception &e) {
-          SHERPA_ONNX_LOGE("Exception while joining worker thread %d: %s", i,
-                           e.what());
-        } catch (...) {
-          SHERPA_ONNX_LOGE("Unknown exception while joining worker thread %d.",
-                           i);
-        }
-      } else {
-        SHERPA_ONNX_LOGE("Worker thread %d is not joinable, skipping.", i);
-      }
-      i++;
-    }
-    SHERPA_ONNX_LOGE("ThreadPool destructor finished.");
-  }
+//   ~ThreadPool() {
+//     SHERPA_ONNX_LOGE("ThreadPool destructor called.");
+//     {
+//       std::unique_lock<std::mutex> lock(queue_mutex_);
+//       stop_ = true;
+//     }
+//     condition_.notify_all();  // Notify all waiting workers to stop
+//     int i = 0;
+//     for (std::thread &worker : workers_) {
+//       if (worker.joinable()) {
+//         SHERPA_ONNX_LOGE("Joining worker thread %d...", i);
+//         try {
+//           worker.join();
+//           SHERPA_ONNX_LOGE("Worker thread %d joined successfully.", i);
+//         } catch (const std::exception &e) {
+//           SHERPA_ONNX_LOGE("Exception while joining worker thread %d: %s", i,
+//                            e.what());
+//         } catch (...) {
+//           SHERPA_ONNX_LOGE("Unknown exception while joining worker thread %d.",
+//                            i);
+//         }
+//       } else {
+//         SHERPA_ONNX_LOGE("Worker thread %d is not joinable, skipping.", i);
+//       }
+//       i++;
+//     }
+//     SHERPA_ONNX_LOGE("ThreadPool destructor finished.");
+//   }
 
  private:
   std::vector<std::thread> workers_;
