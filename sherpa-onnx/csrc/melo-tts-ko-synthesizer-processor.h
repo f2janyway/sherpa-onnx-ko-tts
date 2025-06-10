@@ -148,18 +148,15 @@ class SynthesizerProcessor {
   std::atomic<bool> stop_requested_;
 
   // 청크 단위로 처리하는 내부 함수
-  GeneratedAudio ProcessChunk(
+  void SubmitSentence(
       const std::vector<std::string> &sentences,
       std::vector<std::vector<float>> &ja_berts,
       const std::vector<std::vector<int64_t>> &phone_ids,
       const std::vector<std::vector<int64_t>> &tones,
-      size_t start_idx, 
-      size_t end_idx,
+      size_t sentence_idx,
       int32_t sid, 
       float speed,
-      ProcessCallback callback,
-      int32_t &processed_count,
-      int32_t total_sentences);
+      std::vector<std::future<GeneratedAudio>> &futures);
 };
 
 }  // namespace sherpa_onnx
