@@ -662,17 +662,17 @@ std::string apply_rules(std::string inp, bool descriptive = false) {
   // 규칙 기반 치환
   for (const auto &[str1, str2, rule_ids] : table) {
     std::string before = out;
-    std::string fixed_str2 = fix_replacement_backrefs(str2);
+    // std::string fixed_str2 = fix_replacement_backrefs(str2);
+    // // try {
+    // //     out = std::regex_replace(out, std::regex(str1), str2);
+    // // }
     // try {
-    //     out = std::regex_replace(out, std::regex(str1), str2);
+    //   out = std::regex_replace(out, std::regex(str1), fixed_str2);
+    // } catch (std::regex_error &e) {
+    //   std::cerr << "[regex error] pattern: " << str1 << ", error: " << e.what()
+    //             << std::endl;
+    //   continue;
     // }
-    try {
-      out = std::regex_replace(out, std::regex(str1), fixed_str2);
-    } catch (std::regex_error &e) {
-      std::cerr << "[regex error] pattern: " << str1 << ", error: " << e.what()
-                << std::endl;
-      continue;
-    }
 
     if (out != before) {  // 변경이 있을 때만 출력
       std::cout << "[regex_replace] 패턴: " << str1 << "\n";
