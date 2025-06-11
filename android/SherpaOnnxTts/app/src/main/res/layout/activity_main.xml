@@ -14,7 +14,7 @@
         android:gravity="center"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/sid"
         />
     <EditText
         android:id="@+id/sid"
@@ -25,7 +25,8 @@
         android:gravity="center"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sid_label_hint" />
+        app:layout_constraintBottom_toTopOf="@id/speed_label_hint"
+        />
 
     <TextView
         android:id="@+id/speed_label_hint"
@@ -36,7 +37,8 @@
         android:gravity="center"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sid"/>
+        app:layout_constraintBottom_toTopOf="@id/speed"
+        />
     <EditText
         android:id="@+id/speed"
         android:layout_width="match_parent"
@@ -46,54 +48,70 @@
         android:gravity="center"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/speed_label_hint" />
+        app:layout_constraintBottom_toTopOf="@id/buttons_layout"
+        />
+
+    <LinearLayout
+        android:id="@+id/buttons_layout"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/generate"
+            android:textAllCaps="false"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="50dp"
+            android:layout_marginTop="4dp"
+            android:text="@string/generate"
+            android:layout_marginEnd="4dp"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/text" />
+
+        <Button
+            android:id="@+id/play"
+            android:textAllCaps="false"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="50dp"
+            android:layout_marginTop="4dp"
+            android:text="@string/play"
+            android:layout_marginEnd="4dp"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/generate" />
+
+        <Button
+            android:id="@+id/stop"
+            android:textAllCaps="false"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="50dp"
+            android:layout_marginTop="4dp"
+            android:text="@string/stop"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/play" />
+
+    </LinearLayout>
 
     <EditText
         android:id="@+id/text"
         android:inputType="textMultiLine"
-        android:lines="8"
         android:minLines="10"
         android:gravity="top|start"
-        android:maxLines="30"
-        android:layout_height="wrap_content"
+        android:layout_marginTop="0dp"
+        android:layout_height="0dp"
         android:layout_width="match_parent"
         android:scrollbars="vertical"
         android:hint="@string/text_hint"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/speed" />
+        app:layout_constraintTop_toTopOf="parent"
+        />
 
-    <Button
-        android:id="@+id/generate"
-        android:textAllCaps="false"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginTop="4dp"
-        android:text="@string/generate"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/text" />
-
-    <Button
-        android:id="@+id/play"
-        android:textAllCaps="false"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginTop="4dp"
-        android:text="@string/play"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/generate" />
-
-    <Button
-        android:id="@+id/stop"
-        android:textAllCaps="false"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginTop="4dp"
-        android:text="@string/stop"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/play" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

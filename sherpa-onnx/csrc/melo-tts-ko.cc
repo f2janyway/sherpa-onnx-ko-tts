@@ -96,14 +96,24 @@ wstring compose_hangul(const wstring &jamo_str) {
 
   return result;
 }
-std::wstring utf8_to_wstring(const std::string &str) {
-  std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-  return conv.from_bytes(str);
+std::wstring utf8_to_wstring(const std::string& str) {
+    // Using codecvt_utf8_utf16 for wchar_t (typically 2 or 4 bytes)
+    // The locale on some systems might need to be set for this to work robustly.
+    std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+    return converter.from_bytes(str);
 }
-std::string wstring_to_utf8(const std::wstring &wstr) {
-  std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-  return conv.to_bytes(wstr);
+std::string wstring_to_utf8(const std::wstring& wstr) {
+    std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+    return converter.to_bytes(wstr);
 }
+// std::wstring utf8_to_wstring(const std::string &str) {
+//   std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+//   return conv.from_bytes(str);
+// }
+// std::string wstring_to_utf8(const std::wstring &wstr) {
+//   std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+//   return conv.to_bytes(wstr);
+// }
 std::map<std::string, std::string> rule_id2text_map;
 
 // --- gloss 함수 (로깅/디버깅용) ---
@@ -434,29 +444,46 @@ string link4(const string &inp, bool descriptive = false,
   return out;
 }
 
-using RuleEntry = tuple<string, string, vector<string>>;
+using RuleEntry = tuple<wstring, wstring, vector<wstring>>;
 vector<RuleEntry> table;
 // tuple: (str1, str2, rule_ids)
+std::wstring fix_replacement_backrefs_w(const std::wstring& replacement) {
+    std::wstring fixed;
+    fixed.reserve(replacement.size());
 
-std::string fix_replacement_backrefs(const std::string &replacement) {
-  std::string fixed;
-  fixed.reserve(replacement.size());
-
-  for (size_t i = 0; i < replacement.size(); ++i) {
-    if (replacement[i] == '\\' && i + 1 < replacement.size()) {
-      char next = replacement[i + 1];
-      if (next >= '0' && next <= '9') {
-        // \숫자 -> $숫자 로 변경
-        fixed += '$';
-        fixed += next;
-        ++i;  // 다음 문자 건너뜀
-        continue;
-      }
+    for (size_t i = 0; i < replacement.size(); ++i) {
+        if (replacement[i] == L'\\' && i + 1 < replacement.size()) {
+            wchar_t next = replacement[i + 1];
+            if (next >= L'0' && next <= L'9') {
+                fixed += L'$';
+                fixed += next;
+                ++i; // Skip next character
+                continue;
+            }
+        }
+        fixed += replacement[i];
     }
-    fixed += replacement[i];
-  }
-  return fixed;
+    return fixed;
 }
+// std::string fix_replacement_backrefs(const std::string &replacement) {
+//   std::string fixed;
+//   fixed.reserve(replacement.size());
+
+//   for (size_t i = 0; i < replacement.size(); ++i) {
+//     if (replacement[i] == '\\' && i + 1 < replacement.size()) {
+//       char next = replacement[i + 1];
+//       if (next >= '0' && next <= '9') {
+//         // \숫자 -> $숫자 로 변경
+//         fixed += '$';
+//         fixed += next;
+//         ++i;  // 다음 문자 건너뜀
+//         continue;
+//       }
+//     }
+//     fixed += replacement[i];
+//   }
+//   return fixed;
+// }
 std::vector<RuleEntry> parse_table_csv_hardcoded() {
     std::vector<RuleEntry> table;
 
@@ -516,14 +543,14 @@ std::vector<RuleEntry> parse_table_csv_hardcoded() {
         if (cols.empty()) continue;
         std::string coda = cols[0];
 
-        for (size_t i = 1; i < cols.size(); ++i) {
+        for (size_t i = 1; i < std::min(cols.size(), onsets.size()); ++i) {
             std::string cell_content = cols[i]; // 'cell'이 이미 위에 있으므로 다른 이름 사용
             if (cell_content.empty()) continue;
 
             std::string onset = onsets[i];
             std::string str1 = coda + onset;
             std::string str2;
-            std::vector<std::string> rule_ids;
+            std::vector<std::wstring> rule_ids;
 
             // 괄호가 있으면 규칙 포함
             size_t pos = cell_content.find('(');
@@ -537,85 +564,89 @@ std::vector<RuleEntry> parse_table_csv_hardcoded() {
                 std::stringstream rss(rule_str);
                 std::string rule;
                 while (std::getline(rss, rule, '/')) {
-                    rule_ids.push_back(rule);
+                    rule_ids.push_back(utf8_to_wstring(rule));
                 }
-            } else {
+            }
+            else {
                 str2 = cell_content;
             }
 
-            table.emplace_back(str1, str2, rule_ids);
+            // table.emplace_back(utf8_to_wstring( str1),utf8_to_wstring(str2), rule_ids);
+            table.emplace_back(
+                utf8_to_wstring(str1), utf8_to_wstring(str2), rule_ids
+            );
         }
     }
 
     return table;
 }
-vector<RuleEntry> parse_table_csv(const string &filename) {
-  vector<RuleEntry> table;
+// vector<RuleEntry> parse_table_csv(const string &filename) {
+//   vector<RuleEntry> table;
 
-  ifstream file(filename);
-  if (!file.is_open()) {
-    cerr << "파일을 열 수 없습니다: " << filename << endl;
-    return table;
-  }
+//   ifstream file(filename);
+//   if (!file.is_open()) {
+//     cerr << "파일을 열 수 없습니다: " << filename << endl;
+//     return table;
+//   }
 
-  string line;
-  vector<string> onsets;
+//   string line;
+//   vector<string> onsets;
 
-  // 첫 줄 (onset 목록)
-  if (getline(file, line)) {
-    stringstream ss(line);
-    string cell;
-    while (getline(ss, cell, ',')) {
-      onsets.push_back(cell);
-    }
-  }
+//   // 첫 줄 (onset 목록)
+//   if (getline(file, line)) {
+//     stringstream ss(line);
+//     string cell;
+//     while (getline(ss, cell, ',')) {
+//       onsets.push_back(cell);
+//     }
+//   }
 
-  // 나머지 줄들 (coda + 각 onset 조합)
-  while (getline(file, line)) {
-    stringstream ss(line);
-    vector<string> cols;
-    string cell;
+//   // 나머지 줄들 (coda + 각 onset 조합)
+//   while (getline(file, line)) {
+//     stringstream ss(line);
+//     vector<string> cols;
+//     string cell;
 
-    while (getline(ss, cell, ',')) {
-      cols.push_back(cell);
-    }
+//     while (getline(ss, cell, ',')) {
+//       cols.push_back(cell);
+//     }
 
-    if (cols.empty()) continue;
-    string coda = cols[0];
+//     if (cols.empty()) continue;
+//     string coda = cols[0];
 
-    for (size_t i = 1; i < cols.size(); ++i) {
-      string cell = cols[i];
-      if (cell.empty()) continue;
+//     for (size_t i = 1; i < cols.size(); ++i) {
+//       string cell = cols[i];
+//       if (cell.empty()) continue;
 
-      string onset = onsets[i];
-      string str1 = coda + onset;
-      string str2;
-      vector<string> rule_ids;
+//       string onset = onsets[i];
+//       string str1 = coda + onset;
+//       string str2;
+//       vector<string> rule_ids;
 
-      // 괄호가 있으면 규칙 포함
-      size_t pos = cell.find('(');
-      if (pos != string::npos) {
-        str2 = cell.substr(0, pos);
-        string rule_str = cell.substr(pos + 1);
-        if (!rule_str.empty() && rule_str.back() == ')') {
-          rule_str.pop_back();
-        }
+//       // 괄호가 있으면 규칙 포함
+//       size_t pos = cell.find('(');
+//       if (pos != string::npos) {
+//         str2 = cell.substr(0, pos);
+//         string rule_str = cell.substr(pos + 1);
+//         if (!rule_str.empty() && rule_str.back() == ')') {
+//           rule_str.pop_back();
+//         }
 
-        stringstream rss(rule_str);
-        string rule;
-        while (getline(rss, rule, '/')) {
-          rule_ids.push_back(rule);
-        }
-      } else {
-        str2 = cell;
-      }
+//         stringstream rss(rule_str);
+//         string rule;
+//         while (getline(rss, rule, '/')) {
+//           rule_ids.push_back(rule);
+//         }
+//       } else {
+//         str2 = cell;
+//       }
 
-      table.emplace_back(str1, str2, rule_ids);
-    }
-  }
+//       table.emplace_back(str1, str2, rule_ids);
+//     }
+//   }
 
-  return table;
-}
+//   return table;
+// }
 std::string remove_pjeb_tags(const std::string &inp) {
   return std::regex_replace(inp, std::regex("/[PJEB]"), "");
 }
@@ -660,38 +691,49 @@ std::string apply_rules(std::string inp, bool descriptive = false) {
   }
 
   // 규칙 기반 치환
-  for (const auto &[str1, str2, rule_ids] : table) {
-    std::string before = out;
-    // std::string fixed_str2 = fix_replacement_backrefs(str2);
-    // // try {
-    // //     out = std::regex_replace(out, std::regex(str1), str2);
-    // // }
-    // try {
-    //   out = std::regex_replace(out, std::regex(str1), fixed_str2);
-    // } catch (std::regex_error &e) {
-    //   std::cerr << "[regex error] pattern: " << str1 << ", error: " << e.what()
-    //             << std::endl;
-    //   continue;
-    // }
+      for (const auto& [_wstr1, _wstr2, rule_ids] : table) {
 
-    if (out != before) {  // 변경이 있을 때만 출력
-      std::cout << "[regex_replace] 패턴: " << str1 << "\n";
-      std::cout << "[regex_replace] 변환 전: " << before << "\n";
-      std::cout << "[regex_replace] 변환 후: " << out << "\n";
+        wstring wstr1 = _wstr1;
+        wstring wstr2 = _wstr2;
 
-      std::string rule;
-      if (!rule_ids.empty()) {
-        for (const std::string &rule_id : rule_ids) {
-          auto it = rule_id2text_map.find(rule_id);
-          if (it != rule_id2text_map.end()) {
-            rule += it->second + "\n";
-          }
+        wstring wout = utf8_to_wstring(out);
+        
+        wstring before = wout;
+        //////////////
+        std::wstring fixed_str2 = fix_replacement_backrefs_w(wstr2);
+      
+        try {
+   
+            auto v = decompose_hangul(wout);
+            wstring result;
+            result.insert(result.end(), v.begin(), v.end());
+
+            wout = std::regex_replace(result, std::wregex(wstr1), fixed_str2);
+            out = wstring_to_utf8(wout);
         }
-      }
+        catch (std::regex_error& e) {
+            std::cerr << "[regex error] pattern: " << wstring_to_utf8(wstr1) << ", error: " << e.what() << std::endl;
+            continue;
+        }
 
-      gloss(true, out, before, rule);  // gloss는 내부에서 필요한 출력 처리
+        if (wout != before) {  // 변경이 있을 때만 출력
+            std::wcout << "[regex_replace] 패턴: " << wstr1 << "\n";
+            std::wcout << "[regex_replace] 변환 전: " << before << "\n";
+            std::wcout << "[regex_replace] 변환 후: " << wout << "\n";
+
+            std::string rule;
+            if (!rule_ids.empty()) {
+                for (const std::wstring& rule_id : rule_ids) {
+                    auto it = rule_id2text_map.find(wstring_to_utf8(rule_id));
+                    if (it != rule_id2text_map.end()) {
+                        rule += it->second + "\n";
+                    }
+                }
+            }
+
+            gloss(true, out, wstring_to_utf8(before), rule);  // gloss는 내부에서 필요한 출력 처리
+        }
     }
-  }
   out = apply_rule_step("link1", link1, out, descriptive);
   out = apply_rule_step("link2", link2, out, descriptive);
   out = apply_rule_step("link3", link3, out, descriptive);
