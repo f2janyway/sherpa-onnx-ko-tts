@@ -273,6 +273,7 @@ class MeloTtsLexicon::Impl {
        const std::string &ja_bert_model_path, const std::string &vocab_path,
        const OfflineTtsVitsModelMetaData &meta_data, bool debug) {
     {
+      
       auto buf = ReadFile(mgr, tokens);
       // ja_bert_model_path_ = ja_bert_model_path;
       // vocab_path_ = vocab_path;

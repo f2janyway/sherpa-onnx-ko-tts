@@ -13,7 +13,7 @@
 #include <set>
 #include "melo-tts-ko-tokenizer.h"
 #include "melo-tts-ko.h"
-
+#include "sherpa-onnx/csrc/macros.h"
 using namespace std;
 
 // 한글 유니코드 오프셋 값
@@ -30,6 +30,19 @@ const int NUM_TAILS = 28;
 // 한글 여부 확인
 bool is_hangul_syllable(wchar_t ch) { return (ch >= 0xAC00 && ch <= 0xD7A3); }
 
+// 유틸 함수: 여러 문자열 치환
+// string replace_pairs(const string &inp,
+//                      const vector<pair<string, string>> &pairs) {
+//   string out = inp;
+//   for (const auto &[from, to] : pairs) {
+//     size_t pos = 0;
+//     while ((pos = out.find(from, pos)) != string::npos) {
+//       out.replace(pos, from.length(), to);
+//       pos += to.length();
+//     }
+//   }
+//   return out;
+// }
 // 분리 함수
 vector<wchar_t> decompose_hangul(wstring input) {
   vector<wchar_t> result;
@@ -106,6 +119,25 @@ std::string wstring_to_utf8(const std::wstring& wstr) {
     std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
     return converter.to_bytes(wstr);
 }
+
+std::wstring decomposed_and_compose(std::wstring origin) {
+    auto decompose_out = decompose_hangul(origin);
+    wstring result;
+    result.insert(result.end(), decompose_out.begin(), decompose_out.end());
+    return result;
+}
+wstring replace_pairs_w(const wstring& inp, const vector<pair<wstring, wstring>>& pairs) {
+    wstring out = decomposed_and_compose(inp);
+    for (const auto& [from, to] : pairs) {
+        size_t pos = 0;
+        while ((pos = out.find(from, pos)) != wstring::npos) {
+            out.replace(pos, from.length(), to);
+            pos += to.length();
+        }
+    }
+    return out;
+}
+
 // std::wstring utf8_to_wstring(const std::string &str) {
 //   std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
 //   return conv.from_bytes(str);
@@ -117,332 +149,244 @@ std::string wstring_to_utf8(const std::wstring& wstr) {
 std::map<std::string, std::string> rule_id2text_map;
 
 // --- gloss 함수 (로깅/디버깅용) ---
-void gloss(bool verbose, const std::string &out, const std::string &inp,
+void gloss(bool verbose, const std::wstring &out, const std::wstring &inp,
            const std::string &rule) {
   if (verbose) {
     if (out != inp) {
-      std::cout << "\tRule: " << rule << std::endl;
-      std::cout << "\tChanged: '" << inp << "' -> '" << out << "'" << std::endl;
-    } else {
-      std::cout << "\tNo change for: '" << inp << "'" << std::endl;
+      SHERPA_ONNX_LOGE("Rule: %s", rule.c_str());
+      SHERPA_ONNX_LOGE("\tChanged: '%s -> %s'", wstring_to_utf8(inp).c_str(), wstring_to_utf8(out).c_str());
     }
   }
 }
 
-// ############################ vowels ############################
 
-// 파이썬의 jyeo 함수 대응
-std::string jyeo(std::string inp, bool descriptive = false,
-                 bool verbose = false) {
-  std::string rule = rule_id2text_map["5.1"];
-  std::string out = std::regex_replace(inp, std::regex("([ᄌᄍᄎ])ᅧ"), "$1ᅥ");
-  gloss(verbose, out, inp, rule);
-  return out;
+
+// link1: 홑받침 또는 쌍받침 + ᄋ → 초성으로 변경 (wstring 버전)
+std::wstring link1_w(const std::wstring &inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["13"];
+    std::vector<std::pair<std::wstring, std::wstring>> pairs = {
+        {L"ᆨᄋ", L"ᄀ"}, {L"ᆩᄋ", L"ᄁ"}, {L"ᆫᄋ", L"ᄂ"}, {L"ᆮᄋ", L"ᄃ"}, {L"ᆯᄋ", L"ᄅ"},
+        {L"ᆷᄋ", L"ᄆ"}, {L"ᆸᄋ", L"ᄇ"}, {L"ᆺᄋ", L"ᄉ"}, {L"ᆻᄋ", L"ᄊ"}, {L"ᆽᄋ", L"ᄌ"},
+        {L"ᆾᄋ", L"ᄎ"}, {L"ᆿᄋ", L"ᄏ"}, {L"ᇀᄋ", L"ᄐ"}, {L"ᇁᄋ", L"ᄑ"},
+    };
+    std::wstring out = replace_pairs_w(inp, pairs);
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// 파이썬의 ye 함수 대응
-std::string ye(std::string inp, bool descriptive = false,
-               bool verbose = false) {
-  std::string rule = rule_id2text_map["5.2"];
-  std::string out = inp;
-  if (descriptive) {
-    // '\S' 대신 `.`을 사용하거나, 더 정확하게는 한글 자모 유니코드 범위 사용
-    out = std::regex_replace(
-        inp, std::regex("([ᄀᄁᄃᄄᄅᄆᄇᄈᄌᄍᄎᄏᄐᄑᄒ])ᅨ"), "$1ᅦ");
-  }
-  gloss(verbose, out, inp, rule);
-  return out;
+// link2: 겹받침 + ᄋ → 초성 2개로 분해 (wstring 버전)
+std::wstring link2_w(const std::wstring &inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["14"];
+    std::vector<std::pair<std::wstring, std::wstring>> pairs = {
+        {L"ᆪᄋ", L"ᆨᄊ"}, {L"ᆬᄋ", L"ᆫᄌ"}, {L"ᆰᄋ", L"ᆯᄀ"},
+        {L"ᆱᄋ", L"ᆯᄆ"}, {L"ᆲᄋ", L"ᆯᄇ"}, {L"ᆳᄋ", L"ᆯᄊ"},
+        {L"ᆴᄋ", L"ᆯᄐ"}, {L"ᆵᄋ", L"ᆯᄑ"}, {L"ᆹᄋ", L"ᆸᄊ"},
+    };
+    std::wstring out = replace_pairs_w(inp, pairs);
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// 파이썬의 consonant_ui 함수 대응
-std::string consonant_ui(std::string inp, bool descriptive = false,
-                         bool verbose = false) {
-  std::string rule = rule_id2text_map["5.3"];
-  std::string out = std::regex_replace(
-      inp, std::regex("([ᄀᄁᄂᄃᄄᄅᄆᄇᄈᄉᄊᄌᄍᄎᄏᄐᄑᄒ])ᅴ"), "$1ᅵ");
-  gloss(verbose, out, inp, rule);
-  return out;
+// link3: 받침 + 공백 + ᄋ 처리 (wstring 버전)
+std::wstring link3_w(const std::wstring &inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["15"];
+    std::vector<std::pair<std::wstring, std::wstring>> pairs = {
+        {L"ᆨ ᄋ", L" ᄀ"},  {L"ᆩ ᄋ", L" ᄁ"},  {L"ᆫ ᄋ", L" ᄂ"},  {L"ᆮ ᄋ", L" ᄃ"},
+        {L"ᆯ ᄋ", L" ᄅ"},  {L"ᆷ ᄋ", L" ᄆ"},  {L"ᆸ ᄋ", L" ᄇ"},  {L"ᆺ ᄋ", L" ᄉ"},
+        {L"ᆻ ᄋ", L" ᄊ"},  {L"ᆽ ᄋ", L" ᄌ"},  {L"ᆾ ᄋ", L" ᄎ"},  {L"ᆿ ᄋ", L" ᄏ"},
+        {L"ᇀ ᄋ", L" ᄐ"},  {L"ᇁ ᄋ", L" ᄑ"},  {L"ᆪ ᄋ", L"ᆨ ᄊ"}, {L"ᆬ ᄋ", L"ᆫ ᄌ"},
+        {L"ᆰ ᄋ", L"ᆯ ᄀ"}, {L"ᆱ ᄋ", L"ᆯ ᄆ"}, {L"ᆲ ᄋ", L"ᆯ ᄇ"}, {L"ᆳ ᄋ", L"ᆯ ᄊ"},
+        {L"ᆴ ᄋ", L"ᆯ ᄐ"}, {L"ᆵ ᄋ", L"ᆯ ᄑ"}, {L"ᆹ ᄋ", L"ᆸ ᄊ"},
+    };
+    std::wstring out = replace_pairs_w(inp, pairs);
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// 파이썬의 josa_ui 함수 대응
-std::string josa_ui(std::string inp, bool descriptive = false,
-                    bool verbose = false) {
-  std::string rule = rule_id2text_map["5.4.2"];
-  std::string out = inp;
-  if (descriptive) {
-    out = std::regex_replace(inp, std::regex("의/J"), "에");
-  } else {
-    size_t pos = out.find("/J");
-    if (pos != std::string::npos) {
-      out.replace(pos, 2, "");
+// link4: ㅎ+ᄋ → 생략 규칙 (wstring 버전)
+std::wstring link4_w(const std::wstring &inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["12.4"];
+    std::vector<std::pair<std::wstring, std::wstring>> pairs = {
+        {L"ᇂᄋ", L"ᄋ"}, {L"ᆭᄋ", L"ᄂ"}, {L"ᆶᄋ", L"ᄅ"}
+    };
+    std::wstring out = replace_pairs_w(inp, pairs);
+    gloss(verbose, (out), (inp), rule);
+    return out;
+}
+/// 파이썬의 jyeo 함수 대응 (wstring 버전)
+std::wstring jyeo_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["5.1"];
+
+    std::wstring _inp = decomposed_and_compose(inp);
+    std::wstring out = std::regex_replace(_inp, std::wregex(L"([ᄌᄍᄎ])ᅧ"), L"$1ᅥ");
+    gloss(verbose, (out), (inp), rule);
+    return out;
+}
+
+// 파이썬의 ye 함수 대응 (wstring 버전)
+std::wstring ye_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["5.2"];
+    std::wstring out = inp;
+    if (descriptive) {
+        std::wstring _inp = decomposed_and_compose(inp);
+        out = std::regex_replace(_inp, std::wregex(L"([ᄀᄁᄃᄄᄅᄆᄇᄈᄌᄍᄎᄏᄐᄑᄒ])ᅨ"), L"$1ᅦ");
     }
-  }
-  gloss(verbose, out, inp, rule);
-  return out;
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// 파이썬의 vowel_ui 함수 대응
-std::string vowel_ui(std::string inp, bool descriptive = false,
-                     bool verbose = false) {
-  std::string rule = rule_id2text_map["5.4.1"];
-  std::string out = inp;
-  if (descriptive) {
-    // 경고 메시지 '\S'를 해결하기 위해 '.' 사용
-    // 한글 음절 단위의 '의'를 찾아야 하므로, 실제로 'ᄋ' 앞에 어떤 자모가 와도
-    // 되는 패턴. NFD 상태이므로 'ᄋ'은 초성으로 단독으로 존재할 수 있습니다. 이
-    // 패턴은 `\S`가 아닌 `.`으로 충분합니다.
-    out = std::regex_replace(inp, std::regex("(.ᄋ)ᅴ"), "$1ᅵ");
-  }
-  gloss(verbose, out, inp, rule);
-  return out;
+// 파이썬의 consonant_ui 함수 대응 (wstring 버전)
+std::wstring consonant_ui_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["5.3"];
+    std::wstring _inp = decomposed_and_compose(inp);
+    std::wstring out = std::regex_replace(_inp, std::wregex(L"([ᄀᄁᄂᄃᄄᄅᄆᄇᄈᄉᄊᄌᄍᄎᄏᄐᄑᄒ])ᅴ"), L"$1ᅵ");
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// 파이썬의 jamo 함수 대응
-std::string jamo(std::string inp, bool descriptive = false,
-                 bool verbose = false) {
-  std::string rule = rule_id2text_map["16"];
-  std::string out = inp;
-
-  out = std::regex_replace(out, std::regex("([그])ᆮᄋ"), "$1ᄉ");
-  out = std::regex_replace(out, std::regex("([으])[ᆽᆾᇀᇂ]ᄋ"), "$1ᄉ");
-  out = std::regex_replace(out, std::regex("([으])[ᆿ]ᄋ"), "$1ᄀ");
-  out = std::regex_replace(out, std::regex("([으])[ᇁ]ᄋ"), "$1ᄇ");
-
-  gloss(verbose, out, inp, rule);
-  return out;
-}
-
-// ############################ 어간 받침 ############################
-
-// 파이썬의 rieulgiyeok 함수 대응
-std::string rieulgiyeok(std::string inp, bool descriptive = false,
-                        bool verbose = false) {
-  std::string rule = rule_id2text_map["11.1"];
-  std::string out = std::regex_replace(inp, std::regex("ᆰ/P([ᄀᄁ])"), "ᆯᄁ");
-  gloss(verbose, out, inp, rule);
-  return out;
-}
-
-// 파이썬의 rieulbieub 함수 대응
-std::string rieulbieub(std::string inp, bool descriptive = false,
-                       bool verbose = false) {
-  std::string rule = rule_id2text_map["25"];
-  std::string out = inp;
-
-  out = std::regex_replace(out, std::regex("([ᆲᆴ])/Pᄀ"), "$1ᄁ");
-  out = std::regex_replace(out, std::regex("([ᆲᆴ])/Pᄃ"), "$1ᄄ");
-  out = std::regex_replace(out, std::regex("([ᆲᆴ])/Pᄉ"), "$1ᄊ");
-  out = std::regex_replace(out, std::regex("([ᆲᆴ])/Pᄌ"), "$1ᄍ");
-
-  gloss(verbose, out, inp, rule);
-  return out;
-}
-
-// 파이썬의 verb_nieun 함수 대응
-std::string verb_nieun(std::string inp, bool descriptive = false,
-                       bool verbose = false) {
-  std::string rule = rule_id2text_map["24"];
-  std::string out = inp;
-
-  out = std::regex_replace(out, std::regex("([ᆫᆷ])/Pᄀ"), "$1ᄁ");
-  out = std::regex_replace(out, std::regex("([ᆫᆷ])/Pᄃ"), "$1ᄄ");
-  out = std::regex_replace(out, std::regex("([ᆫᆷ])/Pᄉ"), "$1ᄊ");
-  out = std::regex_replace(out, std::regex("([ᆫᆷ])/Pᄌ"), "$1ᄍ");
-
-  out = std::regex_replace(out, std::regex("ᆬ/Pᄀ"), "ᆫᄁ");
-  out = std::regex_replace(out, std::regex("ᆬ/Pᄃ"), "ᆫᄄ");
-  out = std::regex_replace(out, std::regex("ᆬ/Pᄉ"), "ᆫᄊ");
-  out = std::regex_replace(out, std::regex("ᆬ/Pᄌ"), "ᆫᄍ");
-
-  out = std::regex_replace(out, std::regex("ᆱ/Pᄀ"), "ᆷᄁ");
-  out = std::regex_replace(out, std::regex("ᆱ/Pᄃ"), "ᆷᄄ");
-  out = std::regex_replace(out, std::regex("ᆱ/Pᄉ"), "ᆷᄊ");
-  out = std::regex_replace(out, std::regex("ᆱ/Pᄌ"), "ᆷᄍ");
-
-  // grok Removed /P, apply directly
-  // out = std::regex_replace(out, std::regex("([ᆫᆷ])([ᄀ])"), "$1ᄁ");
-  // out = std::regex_replace(out, std::regex("([ᆫᆷ])([ᄃ])"), "$1ᄄ");
-  // out = std::regex_replace(out, std::regex("([ᆫᆷ])([ᄉ])"), "$1ᄊ");
-  // out = std::regex_replace(out, std::regex("([ᆫᆷ])([ᄌ])"), "$1ᄍ");
-
-  // out = std::regex_replace(out, std::regex("ᆬ([ᄀ])"), "ᆫᄁ");
-  // out = std::regex_replace(out, std::regex("ᆬ([ᄃ])"), "ᆫᄄ");
-  // out = std::regex_replace(out, std::regex("ᆬ([ᄉ])"), "ᆫᄊ");
-  // out = std::regex_replace(out, std::regex("ᆬ([ᄌ])"), "ᆫᄍ");
-
-  // out = std::regex_replace(out, std::regex("ᆱ([ᄀ])"), "ᆷᄁ");
-  // out = std::regex_replace(out, std::regex("ᆱ([ᄃ])"), "ᆷᄄ");
-  // out = std::regex_replace(out, std::regex("ᆱ([ᄉ])"), "ᆷᄊ");
-  // out = std::regex_replace(out, std::regex("ᆱ([ᄌ])"), "ᆷᄍ");
-  gloss(verbose, out, inp, rule);
-  return out;
-}
-
-// // 파이썬의 balb 함수 대응
-// std::string balb(std::string inp, bool descriptive = false, bool verbose =
-// false) {
-//     std::string rule = rule_id2text_map["10.1"];
-//     std::string out = inp;
-
-//     // gemeni `$`는 문자열의 끝을 의미, `[^ᄋᄒ]`는 'ᄋ' 또는 'ᄒ'이 아닌
-//     모든 문자
-//     // out = std::regex_replace(out, std::regex("(바)ᆲ(\\$|[^ᄋᄒ])"),
-//     "$1ᆸ$2");
-//     // out = std::regex_replace(out, std::regex("(너)ᆲ([ᄌᄍ]ᅮ|[ᄃᄄ]ᅮ)"),
-//     "$1ᆸ$2");
-
-//     //grok Simplified regex to apply to ᆲ followed by any consonant or end
-//     out = std::regex_replace(out, std::regex("(바)ᆲ([ᄀ-ᄒ]?|$)"), "$1ᆸ$2");
-//     out = std::regex_replace(out, std::regex("(너)ᆲ([ᄌᄍ]ᅮ|[ᄃᄄ]ᅮ)"),
-//     "$1ᆸ$2");
-
-//     gloss(verbose, out, inp, rule);
-//     return out;
-// }
-
-std::string balb(std::string inp, bool descriptive = false,
-                 bool verbose = false) {
-  std::string rule = rule_id2text_map["10.1"];
-  std::string out = inp;
-
-  // C++ 정규식에서 우선순위 명확히 하기 위해 괄호로 묶음
-  // (바)ᆲ 뒤에 문자열 끝이거나 ᄋ, ᄒ가 아닌 문자 있을 때만 변경
-  out = std::regex_replace(out, std::regex("(바)ᆲ($|[^ᄋᄒ])"), "$1ᆸ$2");
-
-  // 두번째 규칙은 파이썬과 동일하게 유지
-  out = std::regex_replace(out, std::regex("(너)ᆲ([ᄌᄍ]ᅮ|[ᄃᄄ]ᅮ)"), "$1ᆸ$2");
-
-  gloss(verbose, out, inp, rule);
-  return out;
-}
-std::string palatalize(std::string inp, bool descriptive = false,
-                       bool verbose = false) {
-  std::wstring winp = utf8_to_wstring(inp);
-  std::wstring wout = winp;
-
-  std::wregex r1(L"ᆮᄋ([ᅵᅧ])");
-  std::wregex r2(L"ᇀᄋ([ᅵᅧ])");
-  std::wregex r3(L"ᆴᄋ([ᅵᅧ])");
-  std::wregex r4(L"ᆮᄒ([ᅵ])");
-
-  wout = std::regex_replace(wout, r1, L"ᄌ$1");
-  wout = std::regex_replace(wout, r2, L"ᄎ$1");
-  wout = std::regex_replace(wout, r3, L"ᆯᄎ$1");
-  wout = std::regex_replace(wout, r4, L"ᄎ$1");
-
-  std::string out = wstring_to_utf8(wout);
-
-  gloss(verbose, out, inp, rule_id2text_map["17"]);
-  return out;
-}
-// 파이썬의 palatalize 함수 대응
-// std::string palatalize(std::string inp, bool descriptive = false, bool
-// verbose = false) {
-//     std::string rule = rule_id2text_map["17"];
-//     std::string out = inp;
-
-//     out = std::regex_replace(out, std::regex("ᆮᄋ([ᅵᅧ])"), "ᄌ$1");
-//     out = std::regex_replace(out, std::regex("ᇀᄋ([ᅵᅧ])"), "ᄎ$1");
-//     out = std::regex_replace(out, std::regex("ᆴᄋ([ᅵᅧ])"), "ᆯᄎ$1");
-
-//     out = std::regex_replace(out, std::regex("ᆮᄒ([ᅵ])"), "ᄎ$1");
-
-//     gloss(verbose, out, inp, rule);
-//     return out;
-// }
-
-// 파이썬의 modifying_rieul 함수 대응
-std::string modifying_rieul(std::string inp, bool descriptive = false,
-                            bool verbose = false) {
-  std::string rule = rule_id2text_map["27"];
-  std::string out = inp;
-
-  out = std::regex_replace(out, std::regex("ᆯ/E ᄀ"), "ᆯ ᄁ");
-  out = std::regex_replace(out, std::regex("ᆯ/E ᄃ"), "ᆯ ᄄ");
-  out = std::regex_replace(out, std::regex("ᆯ/E ᄇ"), "ᆯ ᄈ");
-  out = std::regex_replace(out, std::regex("ᆯ/E ᄉ"), "ᆯ ᄊ");
-  out = std::regex_replace(out, std::regex("ᆯ/E ᄌ"), "ᆯ ᄍ");
-
-  out = std::regex_replace(out, std::regex("ᆯ걸"), "ᆯ껄");
-  out = std::regex_replace(out, std::regex("ᆯ밖에"), "ᆯ빠께");
-  out = std::regex_replace(out, std::regex("ᆯ세라"), "ᆯ쎄라");
-  out = std::regex_replace(out, std::regex("ᆯ수록"), "ᆯ쑤록");
-  out = std::regex_replace(out, std::regex("ᆯ지라도"), "ᆯ찌라도");
-  out = std::regex_replace(out, std::regex("ᆯ지언정"), "ᆯ찌언정");
-  out = std::regex_replace(out, std::regex("ᆯ진대"), "ᆯ찐대");
-
-  gloss(verbose, out, inp, rule);
-  return out;
-}
-// 유틸 함수: 여러 문자열 치환
-string replace_pairs(const string &inp,
-                     const vector<pair<string, string>> &pairs) {
-  string out = inp;
-  for (const auto &[from, to] : pairs) {
-    size_t pos = 0;
-    while ((pos = out.find(from, pos)) != string::npos) {
-      out.replace(pos, from.length(), to);
-      pos += to.length();
+// 파이썬의 josa_ui 함수 대응 (wstring 버전)
+std::wstring josa_ui_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["5.4.2"];
+    std::wstring out = decomposed_and_compose(inp);
+    if (descriptive) {
+        out = std::regex_replace(inp, std::wregex(L"의/J"), L"에");
     }
-  }
-  return out;
+    else {
+        size_t pos = out.find(L"/J");
+        if (pos != std::wstring::npos) {
+            out.replace(pos, 2, L"");
+        }
+    }
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// link1: 홑받침 또는 쌍받침 + ᄋ → 초성으로 변경
-string link1(const string &inp, bool descriptive = false,
-             bool verbose = false) {
-  string rule = rule_id2text_map["13"];
-  vector<pair<string, string>> pairs = {
-      {"ᆨᄋ", "ᄀ"}, {"ᆩᄋ", "ᄁ"}, {"ᆫᄋ", "ᄂ"}, {"ᆮᄋ", "ᄃ"}, {"ᆯᄋ", "ᄅ"},
-      {"ᆷᄋ", "ᄆ"}, {"ᆸᄋ", "ᄇ"}, {"ᆺᄋ", "ᄉ"}, {"ᆻᄋ", "ᄊ"}, {"ᆽᄋ", "ᄌ"},
-      {"ᆾᄋ", "ᄎ"}, {"ᆿᄋ", "ᄏ"}, {"ᇀᄋ", "ᄐ"}, {"ᇁᄋ", "ᄑ"},
-  };
-  string out = replace_pairs(inp, pairs);
-  gloss(verbose, out, inp, rule);
-  return out;
+// 파이썬의 vowel_ui 함수 대응 (wstring 버전)
+std::wstring vowel_ui_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["5.4.1"];
+    std::wstring out = inp;
+    if (descriptive) {
+        std::wstring _inp = decomposed_and_compose(inp);
+        out = std::regex_replace(_inp, std::wregex(L"(.ᄋ)ᅴ"), L"$1ᅵ");
+    }
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// link2: 겹받침 + ᄋ → 초성 2개로 분해
-string link2(const string &inp, bool descriptive = false,
-             bool verbose = false) {
-  string rule = rule_id2text_map["14"];
-  vector<pair<string, string>> pairs = {
-      {"ᆪᄋ", "ᆨᄊ"}, {"ᆬᄋ", "ᆫᄌ"}, {"ᆰᄋ", "ᆯᄀ"},
-      {"ᆱᄋ", "ᆯᄆ"}, {"ᆲᄋ", "ᆯᄇ"}, {"ᆳᄋ", "ᆯᄊ"},
-      {"ᆴᄋ", "ᆯᄐ"}, {"ᆵᄋ", "ᆯᄑ"}, {"ᆹᄋ", "ᆸᄊ"},
-  };
-  string out = replace_pairs(inp, pairs);
-  gloss(verbose, out, inp, rule);
-  return out;
+// 파이썬의 jamo 함수 대응 (wstring 버전)
+std::wstring jamo_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["16"];
+    std::wstring out = decomposed_and_compose(inp);
+
+    out = std::regex_replace(out, std::wregex(L"([그])ᆮᄋ"), L"$1ᄉ");
+    out = std::regex_replace(out, std::wregex(L"([으])[ᆽᆾᇀᇂ]ᄋ"), L"$1ᄉ");
+    out = std::regex_replace(out, std::wregex(L"([으])[ᆿ]ᄋ"), L"$1ᄀ");
+    out = std::regex_replace(out, std::wregex(L"([으])[ᇁ]ᄋ"), L"$1ᄇ");
+
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// link3: 받침 + 공백 + ᄋ 처리
-string link3(const string &inp, bool descriptive = false,
-             bool verbose = false) {
-  string rule = rule_id2text_map["15"];
-  vector<pair<string, string>> pairs = {
-      {"ᆨ ᄋ", " ᄀ"},  {"ᆩ ᄋ", " ᄁ"},  {"ᆫ ᄋ", " ᄂ"},  {"ᆮ ᄋ", " ᄃ"},
-      {"ᆯ ᄋ", " ᄅ"},  {"ᆷ ᄋ", " ᄆ"},  {"ᆸ ᄋ", " ᄇ"},  {"ᆺ ᄋ", " ᄉ"},
-      {"ᆻ ᄋ", " ᄊ"},  {"ᆽ ᄋ", " ᄌ"},  {"ᆾ ᄋ", " ᄎ"},  {"ᆿ ᄋ", " ᄏ"},
-      {"ᇀ ᄋ", " ᄐ"},  {"ᇁ ᄋ", " ᄑ"},  {"ᆪ ᄋ", "ᆨ ᄊ"}, {"ᆬ ᄋ", "ᆫ ᄌ"},
-      {"ᆰ ᄋ", "ᆯ ᄀ"}, {"ᆱ ᄋ", "ᆯ ᄆ"}, {"ᆲ ᄋ", "ᆯ ᄇ"}, {"ᆳ ᄋ", "ᆯ ᄊ"},
-      {"ᆴ ᄋ", "ᆯ ᄐ"}, {"ᆵ ᄋ", "ᆯ ᄑ"}, {"ᆹ ᄋ", "ᆸ ᄊ"},
-  };
-  string out = replace_pairs(inp, pairs);
-  gloss(verbose, out, inp, rule);
-  return out;
+// 파이썬의 rieulgiyeok 함수 대응 (wstring 버전)
+std::wstring rieulgiyeok_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["11.1"];
+    std::wstring _inp = decomposed_and_compose(inp);
+    std::wstring out = std::regex_replace(_inp, std::wregex(L"ᆰ/P([ᄀᄁ])"), L"ᆯᄁ");
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
 
-// link4: ㅎ+ᄋ → 생략 규칙
-string link4(const string &inp, bool descriptive = false,
-             bool verbose = false) {
-  string rule = rule_id2text_map["12.4"];
-  vector<pair<string, string>> pairs = {
-      {"ᇂᄋ", "ᄋ"}, {"ᆭᄋ", "ᄂ"}, {"ᆶᄋ", "ᄅ"}};
-  string out = replace_pairs(inp, pairs);
-  gloss(verbose, out, inp, rule);
-  return out;
+// 파이썬의 rieulbieub 함수 대응 (wstring 버전)
+std::wstring rieulbieub_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["25"];
+    std::wstring out = decomposed_and_compose(inp);
+
+    out = std::regex_replace(out, std::wregex(L"([ᆲᆴ])/Pᄀ"), L"$1ᄁ");
+    out = std::regex_replace(out, std::wregex(L"([ᆲᆴ])/Pᄃ"), L"$1ᄄ");
+    out = std::regex_replace(out, std::wregex(L"([ᆲᆴ])/Pᄉ"), L"$1ᄊ");
+    out = std::regex_replace(out, std::wregex(L"([ᆲᆴ])/Pᄌ"), L"$1ᄍ");
+
+    gloss(verbose, (out), (inp), rule);
+    return out;
 }
+
+// 파이썬의 verb_nieun 함수 대응 (wstring 버전)
+std::wstring verb_nieun_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["24"];
+    std::wstring out = decomposed_and_compose(inp);
+
+    out = std::regex_replace(out, std::wregex(L"([ᆫᆷ])/Pᄀ"), L"$1ᄁ");
+    out = std::regex_replace(out, std::wregex(L"([ᆫᆷ])/Pᄃ"), L"$1ᄄ");
+    out = std::regex_replace(out, std::wregex(L"([ᆫᆷ])/Pᄉ"), L"$1ᄊ");
+    out = std::regex_replace(out, std::wregex(L"([ᆫᆷ])/Pᄌ"), L"$1ᄍ");
+
+    out = std::regex_replace(out, std::wregex(L"ᆬ/Pᄀ"), L"ᆫᄁ");
+    out = std::regex_replace(out, std::wregex(L"ᆬ/Pᄃ"), L"ᆫᄄ");
+    out = std::regex_replace(out, std::wregex(L"ᆬ/Pᄉ"), L"ᆫᄊ");
+    out = std::regex_replace(out, std::wregex(L"ᆬ/Pᄌ"), L"ᆫᄍ");
+
+    out = std::regex_replace(out, std::wregex(L"ᆱ/Pᄀ"), L"ᆷᄁ");
+    out = std::regex_replace(out, std::wregex(L"ᆱ/Pᄃ"), L"ᆷᄄ");
+    out = std::regex_replace(out, std::wregex(L"ᆱ/Pᄉ"), L"ᆷᄊ");
+    out = std::regex_replace(out, std::wregex(L"ᆱ/Pᄌ"), L"ᆷᄍ");
+
+    gloss(verbose, (out), (inp), rule);
+    return out;
+}
+
+// balb 함수 대응 (wstring 버전)
+std::wstring balb_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["10.1"];
+    std::wstring out = decomposed_and_compose(inp);
+
+    out = std::regex_replace(out, std::wregex(L"(바)ᆲ($|[^ᄋᄒ])"), L"$1ᆸ$2");
+    out = std::regex_replace(out, std::wregex(L"(너)ᆲ([ᄌᄍ]ᅮ|[ᄃᄄ]ᅮ)"), L"$1ᆸ$2");
+
+    gloss(verbose, (out), (inp), rule);
+    return out;
+}
+
+// palatalize 함수 대응 (wstring 버전)
+std::wstring palatalize_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::wstring out = decomposed_and_compose(inp);
+
+    std::wregex r1(L"ᆮᄋ([ᅵᅧ])");
+    std::wregex r2(L"ᇀᄋ([ᅵᅧ])");
+    std::wregex r3(L"ᆴᄋ([ᅵᅧ])");
+    std::wregex r4(L"ᆮᄒ([ᅵ])");
+
+    out = std::regex_replace(out, r1, L"ᄌ$1");
+    out = std::regex_replace(out, r2, L"ᄎ$1");
+    out = std::regex_replace(out, r3, L"ᆯᄎ$1");
+    out = std::regex_replace(out, r4, L"ᄎ$1");
+
+    gloss(verbose, (out), (inp), rule_id2text_map["17"]);
+    return out;
+}
+
+// 파이썬의 modifying_rieul 함수 대응 (wstring 버전)
+std::wstring modifying_rieul_w(std::wstring inp, bool descriptive = false, bool verbose = false) {
+    std::string rule = rule_id2text_map["27"];
+    std::wstring out = decomposed_and_compose(inp);
+
+    out = std::regex_replace(out, std::wregex(L"ᆯ/E ᄀ"), L"ᆯ ᄁ");
+    out = std::regex_replace(out, std::wregex(L"ᆯ/E ᄃ"), L"ᆯ ᄄ");
+    out = std::regex_replace(out, std::wregex(L"ᆯ/E ᄇ"), L"ᆯ ᄈ");
+    out = std::regex_replace(out, std::wregex(L"ᆯ/E ᄉ"), L"ᆯ ᄊ");
+    out = std::regex_replace(out, std::wregex(L"ᆯ/E ᄌ"), L"ᆯ ᄍ");
+
+    out = std::regex_replace(out, std::wregex(L"ᆯ걸"), L"ᆯ껄");
+    out = std::regex_replace(out, std::wregex(L"ᆯ밖에"), L"ᆯ빠께");
+    out = std::regex_replace(out, std::wregex(L"ᆯ세라"), L"ᆯ쎄라");
+    out = std::regex_replace(out, std::wregex(L"ᆯ수록"), L"ᆯ쑤록");
+    out = std::regex_replace(out, std::wregex(L"ᆯ지라도"), L"ᆯ찌라도");
+    out = std::regex_replace(out, std::wregex(L"ᆯ지언정"), L"ᆯ찌언정");
+    out = std::regex_replace(out, std::wregex(L"ᆯ진대"), L"ᆯ찐대");
+
+    gloss(verbose, (out), (inp), rule);
+    return out;
+}
+// ############################ vowels ###########################
 
 using RuleEntry = tuple<wstring, wstring, vector<wstring>>;
 vector<RuleEntry> table;
@@ -485,10 +429,14 @@ std::wstring fix_replacement_backrefs_w(const std::wstring& replacement) {
 //   return fixed;
 // }
 std::vector<RuleEntry> parse_table_csv_hardcoded() {
+  
     std::vector<RuleEntry> table;
 
     // CSV 데이터를 하드코딩된 문자열로 정의
-    const std::string hardcoded_csv_data = R"(,( ?)ᄒ,( ?)ᄀ,( ?)ᄁ,( ?)ᄂ,( ?)ᄃ,( ?)ᄄ,( ?)ᄅ,( ?)ᄆ,( ?)ᄇ,( ?)ᄈ,( ?)ᄉ,( ?)ᄊ,( ?)ᄌ,( ?)ᄍ,( ?)ᄎ,( ?)ᄏ,( ?)ᄐ,( ?)ᄑ,(\W|$)
+    // (\W|$) 맨 마지막 항목 지움(테스트)
+    // locale utf korean으로 하면
+//    std::locale::global(std::locale("ko_KR.UTF-8")); // 한글 출력 가능하도록 설정 이것과 연관
+    const std::string hardcoded_csv_data = R"(,( ?)ᄒ,( ?)ᄀ,( ?)ᄁ,( ?)ᄂ,( ?)ᄃ,( ?)ᄄ,( ?)ᄅ,( ?)ᄆ,( ?)ᄇ,( ?)ᄈ,( ?)ᄉ,( ?)ᄊ,( ?)ᄌ,( ?)ᄍ,( ?)ᄎ,( ?)ᄏ,( ?)ᄐ,( ?)ᄑ,
 ᇂ,\1ᄒ,\1ᄏ(12),\1ᄁ,ᆫ\1ᄂ(12),\1ᄐ(12),\1ᄄ,\1ᄅ,\1ᄆ,\1ᄇ,\1ᄈ,\1ᄊ(12),\1ᄊ,\1ᄎ(12),\1ᄍ,\1ᄎ,\1ᄏ,\1ᄐ,\1ᄑ,ᆮ\1
 ᆨ,\1ᄏ(12),ᆨ\1ᄁ(23),,ᆼ\1ᄂ(18),ᆨ\1ᄄ(23),,ᆼ\1ᄂ(19/18),ᆼ\1ᄆ(18),ᆨ\1ᄈ(23),,ᆨ\1ᄊ(23),,ᆨ\1ᄍ(23),,,,,,
 ᆩ,\1ᄏ,ᆨ\1ᄁ(9/23),ᆨ\1ᄁ(9),ᆼ\1ᄂ(18),ᆨ\1ᄄ(9/23),ᆨ\1ᄄ(9),ᆼ\1ᄂ,ᆼ\1ᄆ(18),ᆨ\1ᄈ(9/23),ᆨ\1ᄈ(9),ᆨ\1ᄊ(9/23),ᆨ\1ᄊ(9),ᆨ\1ᄍ(9/23),ᆨ\1ᄍ(9),ᆨ\1ᄎ(9),ᆨ\1ᄏ(9),ᆨ\1ᄐ(9),ᆨ\1ᄑ(9),ᆨ\1(9)
@@ -543,7 +491,7 @@ std::vector<RuleEntry> parse_table_csv_hardcoded() {
         if (cols.empty()) continue;
         std::string coda = cols[0];
 
-        for (size_t i = 1; i < std::min(cols.size(), onsets.size()); ++i) {
+        for (size_t i = 1; i < onsets.size(); ++i) {
             std::string cell_content = cols[i]; // 'cell'이 이미 위에 있으므로 다른 이름 사용
             if (cell_content.empty()) continue;
 
@@ -580,146 +528,76 @@ std::vector<RuleEntry> parse_table_csv_hardcoded() {
 
     return table;
 }
-// vector<RuleEntry> parse_table_csv(const string &filename) {
-//   vector<RuleEntry> table;
 
-//   ifstream file(filename);
-//   if (!file.is_open()) {
-//     cerr << "파일을 열 수 없습니다: " << filename << endl;
-//     return table;
-//   }
-
-//   string line;
-//   vector<string> onsets;
-
-//   // 첫 줄 (onset 목록)
-//   if (getline(file, line)) {
-//     stringstream ss(line);
-//     string cell;
-//     while (getline(ss, cell, ',')) {
-//       onsets.push_back(cell);
-//     }
-//   }
-
-//   // 나머지 줄들 (coda + 각 onset 조합)
-//   while (getline(file, line)) {
-//     stringstream ss(line);
-//     vector<string> cols;
-//     string cell;
-
-//     while (getline(ss, cell, ',')) {
-//       cols.push_back(cell);
-//     }
-
-//     if (cols.empty()) continue;
-//     string coda = cols[0];
-
-//     for (size_t i = 1; i < cols.size(); ++i) {
-//       string cell = cols[i];
-//       if (cell.empty()) continue;
-
-//       string onset = onsets[i];
-//       string str1 = coda + onset;
-//       string str2;
-//       vector<string> rule_ids;
-
-//       // 괄호가 있으면 규칙 포함
-//       size_t pos = cell.find('(');
-//       if (pos != string::npos) {
-//         str2 = cell.substr(0, pos);
-//         string rule_str = cell.substr(pos + 1);
-//         if (!rule_str.empty() && rule_str.back() == ')') {
-//           rule_str.pop_back();
-//         }
-
-//         stringstream rss(rule_str);
-//         string rule;
-//         while (getline(rss, rule, '/')) {
-//           rule_ids.push_back(rule);
-//         }
-//       } else {
-//         str2 = cell;
-//       }
-
-//       table.emplace_back(str1, str2, rule_ids);
-//     }
-//   }
-
-//   return table;
-// }
-std::string remove_pjeb_tags(const std::string &inp) {
-  return std::regex_replace(inp, std::regex("/[PJEB]"), "");
+std::wstring remove_pjeb_tags_w(const std::wstring &inp) {
+  return std::regex_replace(inp, std::wregex(L"/[PJEB]"), L"");
 }
-std::string apply_rule_step(
-    const std::string &step_name,
-    const std::function<std::string(const std::string &, bool, bool)>
-        &rule_func,
-    const std::string &input, bool descriptive) {
-  std::string output =
-      rule_func(input, descriptive, false);  // verbose=false 고정
-  if (output != input) {
-    std::cout << "[" << step_name << "] 변환 전: " << input << "\n";
-    std::cout << "[" << step_name << "] 변환 후: " << output << "\n\n";
-  }
-  return output;
-}
-// // 텍스트 하나받고 &text 위의 함수 지나게 하기
-std::string apply_rules(std::string inp, bool descriptive = false) {
-  std::string out = inp;
-
-  out = apply_rule_step("jyeo", jyeo, out, descriptive);
-  out = apply_rule_step("ye", ye, out, descriptive);
-  out = apply_rule_step("consonant_ui", consonant_ui, out, descriptive);
-  out = apply_rule_step("josa_ui", josa_ui, out, descriptive);
-  out = apply_rule_step("vowel_ui", vowel_ui, out, descriptive);
-  out = apply_rule_step("jamo", jamo, out, descriptive);
-  out = apply_rule_step("rieulgiyeok", rieulgiyeok, out, descriptive);
-  out = apply_rule_step("rieulbieub", rieulbieub, out, descriptive);
-  out = apply_rule_step("verb_nieun", verb_nieun, out, descriptive);
-  out = apply_rule_step("balb", balb, out, descriptive);
-  out = apply_rule_step("palatalize", palatalize, out, descriptive);
-  out = apply_rule_step("modifying_rieul", modifying_rieul, out, descriptive);
-
-  // 태그 제거 - 직접 비교 출력
-  {
-    std::string before = out;
-    out = remove_pjeb_tags(out);
-    if (out != before) {
-      std::cout << "[remove_pjeb_tags] 변환 전: " << before << "\n";
-      std::cout << "[remove_pjeb_tags] 변환 후: " << out << "\n\n";
+std::wstring apply_rule_step_w(
+    const std::wstring& step_name,
+    const std::function<std::wstring(const std::wstring&, bool, bool)>& rule_func,
+    const std::wstring& input,
+    bool descriptive)
+{
+    std::wstring output = rule_func(input, descriptive, false); // verbose=false 고정
+    if (output != input) {
+        SHERPA_ONNX_LOGE("[%s] 변환 전: %s\n", wstring_to_utf8(step_name).c_str(), wstring_to_utf8(input).c_str());
+        SHERPA_ONNX_LOGE("[%s] 변환 후: %s\n\n", wstring_to_utf8(step_name).c_str(), wstring_to_utf8(output).c_str());
     }
-  }
+    return output;
+}
+std::wstring apply_rules_w(std::wstring inp, bool descriptive = false) {
+    std::wstring out = inp;
 
-  // 규칙 기반 치환
-      for (const auto& [_wstr1, _wstr2, rule_ids] : table) {
+    out = apply_rule_step_w(L"jyeo_w", jyeo_w, out, descriptive);
+    out = apply_rule_step_w(L"ye_w", ye_w, out, descriptive);
+    out = apply_rule_step_w(L"consonant_ui_w", consonant_ui_w, out, descriptive);
+    out = apply_rule_step_w(L"josa_ui_w", josa_ui_w, out, descriptive);
+    out = apply_rule_step_w(L"vowel_ui_w", vowel_ui_w, out, descriptive);
+    out = apply_rule_step_w(L"jamo_w", jamo_w, out, descriptive);
+    out = apply_rule_step_w(L"rieulgiyeok_w", rieulgiyeok_w, out, descriptive);
+    out = apply_rule_step_w(L"rieulbieub_w", rieulbieub_w, out, descriptive);
+    out = apply_rule_step_w(L"verb_nieun_w", verb_nieun_w, out, descriptive);
+    out = apply_rule_step_w(L"balb_w", balb_w, out, descriptive);
+    out = apply_rule_step_w(L"palatalize_w", palatalize_w, out, descriptive);
+    out = apply_rule_step_w(L"modifying_rieul_w", modifying_rieul_w, out, descriptive);
 
+    // 태그 제거 - 직접 비교 출력
+    {
+        std::wstring before = out;
+        out = remove_pjeb_tags_w(out);
+        if (out != before) {
+            SHERPA_ONNX_LOGE("[remove_pjeb_tags] 변환 전:%s" ,wstring_to_utf8(before).c_str() );
+            SHERPA_ONNX_LOGE("[remove_pjeb_tags] 변환 후:%s" , wstring_to_utf8(out).c_str() );
+        }
+    }
+
+    // 규칙 기반 치환
+    for (const auto& [_wstr1, _wstr2, rule_ids] : table) {
         wstring wstr1 = _wstr1;
         wstring wstr2 = _wstr2;
 
-        wstring wout = utf8_to_wstring(out);
-        
+        wstring wout = (out);
+
         wstring before = wout;
         //////////////
         std::wstring fixed_str2 = fix_replacement_backrefs_w(wstr2);
-      
+
         try {
-   
-            auto v = decompose_hangul(wout);
-            wstring result;
-            result.insert(result.end(), v.begin(), v.end());
+            wstring result = decomposed_and_compose(wout);
 
             wout = std::regex_replace(result, std::wregex(wstr1), fixed_str2);
-            out = wstring_to_utf8(wout);
+            out = (wout);
         }
         catch (std::regex_error& e) {
-            std::cerr << "[regex error] pattern: " << wstring_to_utf8(wstr1) << ", error: " << e.what() << std::endl;
+            std::cerr << "[regex error] pattern: " << wstring_to_utf8(wstr1)
+                << ", error: " << e.what() << std::endl;
             continue;
         }
 
         if (wout != before) {  // 변경이 있을 때만 출력
-            std::wcout << "[regex_replace] 패턴: " << wstr1 << "\n";
-            std::wcout << "[regex_replace] 변환 전: " << before << "\n";
-            std::wcout << "[regex_replace] 변환 후: " << wout << "\n";
+            SHERPA_ONNX_LOGE("[regex_replace] wstr1:%s,wstr2:%s<<" , wstring_to_utf8(wstr1).c_str(), wstring_to_utf8(wstr2).c_str());
+            SHERPA_ONNX_LOGE("[regex_replace] 변환 전:%s<<" , wstring_to_utf8(before).c_str());
+            SHERPA_ONNX_LOGE("[regex_replace] 변환 후:%s<<" , wstring_to_utf8(wout).c_str());
 
             std::string rule;
             if (!rule_ids.empty()) {
@@ -731,27 +609,27 @@ std::string apply_rules(std::string inp, bool descriptive = false) {
                 }
             }
 
-            gloss(true, out, wstring_to_utf8(before), rule);  // gloss는 내부에서 필요한 출력 처리
+            gloss(true, out, (before), rule);  // gloss는 내부에서 필요한 출력 처리
         }
     }
-  out = apply_rule_step("link1", link1, out, descriptive);
-  out = apply_rule_step("link2", link2, out, descriptive);
-  out = apply_rule_step("link3", link3, out, descriptive);
-  out = apply_rule_step("link4", link4, out, descriptive);
+    out = apply_rule_step_w(L"link1_w", link1_w, out, descriptive);
+    out = apply_rule_step_w(L"link2_w", link2_w, out, descriptive);
+    out = apply_rule_step_w(L"link3_w", link3_w, out, descriptive);
+    out = apply_rule_step_w(L"link4_w", link4_w, out, descriptive);
 
-  return out;
+    return out;
 }
 
 // 유니코드 시퀀스 출력
-void print_unicode(const wstring &text) {
-  wcout << L"[";
-  for (size_t i = 0; i < text.size(); ++i) {
-    wcout << L"U+" << hex << uppercase << setw(4) << setfill(L'0')
-          << (int)text[i];
-    if (i != text.size() - 1) wcout << L", ";
-  }
-  wcout << L"]" << endl;
-}
+// void print_unicode(const wstring &text) {
+//   wcout << L"[";
+//   for (size_t i = 0; i < text.size(); ++i) {
+//     wcout << L"U+" << hex << uppercase << setw(4) << setfill(L'0')
+//           << (int)text[i];
+//     if (i != text.size() - 1) wcout << L", ";
+//   }
+//   wcout << L"]" << endl;
+// }
 std::unordered_map<wchar_t, int> jamo_to_id = {
     {L'!', 210},   // !
     {L'?', 211},   // ?
@@ -844,7 +722,6 @@ vector<int64_t> convert_to_jamo_ids(const wstring &input,bool isFullSentence = f
   return result;
 }
 
-#include "sherpa-onnx/csrc/macros.h"
 std::vector<std::int64_t> AddZeroesPhone(
     const std::vector<std::int64_t> &original_vec) {
   std::vector<std::int64_t> transformed_vec;
@@ -945,9 +822,9 @@ std::string TextToPhone(const std::string& _text) {
     std::wstring result(jamos.begin(), jamos.end());
     vector<wstring> tokens = split(result, ' ');
 
-    vector<string> out_applied_rules;
+    vector<wstring> out_applied_rules;
     for (auto& token : tokens) {
-        string out = apply_rules(wstring_to_utf8(token));
+        wstring out = apply_rules_w(token);
         out_applied_rules.push_back(out);
     }
     // 규칙 적용 (jyeo_wstring 포함)
@@ -957,12 +834,12 @@ std::string TextToPhone(const std::string& _text) {
     std::wstring temp;
     std::wstring temp_str;
     for (auto& out : out_applied_rules) {
-        temp = utf8_to_wstring(out);
+        temp = (out);
         temp_str = compose_hangul(temp);
-        std::cout << "temp_str.size" << temp_str.size() << endl;
+        // std::cout << "temp_str.size" << temp_str.size() << endl;
         word2ph.push_back(temp_str.size());
         rs += temp_str;
-        std::wcout << L"out: " << temp << wstring_to_utf8(temp_str).size() << std::endl;
+        // std::wcout << L"out: " << temp << wstring_to_utf8(temp_str).size() << std::endl;
         // if (idx == 0) {
         // } else {
         //     rs += L" " + compose_hangul(utf8_to_wstring(out));
@@ -971,7 +848,7 @@ std::string TextToPhone(const std::string& _text) {
     }
 
 
-    std::wcout << L"rs: " << rs << std::endl;
+    // std::wcout << L"rs: " << rs << std::endl;
     return wstring_to_utf8(rs);
 }
 int64_t charToPhoneId(const wchar_t& _char) {
@@ -1003,16 +880,16 @@ std::vector<int64_t> TextToPhoneId(const std::string &_text, bool isFullSentence
   vector<wstring> tokens = split(result, ' ');
 
   SHERPA_ONNX_LOGE(">>> TextToPhoneId apply rules");
-  vector<string> out_applied_rules;
+  vector<wstring> out_applied_rules;
   for (auto &token : tokens) {
-    string out = apply_rules(wstring_to_utf8(token));
+    wstring out = apply_rules_w((token));
     out_applied_rules.push_back(out);
   }
   // 규칙 적용 (jyeo_wstring 포함)
   std::wstring rs;
   // std::int8_t idx = 0;
   for (auto &out : out_applied_rules) {
-    rs += compose_hangul(utf8_to_wstring(out));
+    rs += compose_hangul((out));
     // if (idx == 0) {
     // } else {
     //     rs += L" " + compose_hangul(utf8_to_wstring(out));
@@ -1102,11 +979,11 @@ const std::set<std::string> punctuation = { ".", ",", "!", "?", "[UNK]" };
 // Your existing C++ g2pk function
 G2PResult g2pk(const std::string& norm_text, WordPieceTokenizer& tokenizer) {
     std::vector<std::string> tokenized = tokenizer.tokenize(norm_text);
-    std::cout << "korean.py g2pk tokenized: ";
-    for (const auto& t : tokenized) {
-        std::cout << t << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "korean.py g2pk tokenized: ";
+    // for (const auto& t : tokenized) {
+    //     std::cout << t << " ";
+    // }
+    // std::cout << std::endl;
 
     std::vector<std::string> phs;
     std::vector<std::vector<std::string>> ph_groups;
