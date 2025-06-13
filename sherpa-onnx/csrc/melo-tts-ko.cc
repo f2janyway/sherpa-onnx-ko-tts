@@ -181,6 +181,12 @@ std::wstring link2_w(const std::wstring &inp, bool descriptive = false, bool ver
         {L"ᆪᄋ", L"ᆨᄊ"}, {L"ᆬᄋ", L"ᆫᄌ"}, {L"ᆰᄋ", L"ᆯᄀ"},
         {L"ᆱᄋ", L"ᆯᄆ"}, {L"ᆲᄋ", L"ᆯᄇ"}, {L"ᆳᄋ", L"ᆯᄊ"},
         {L"ᆴᄋ", L"ᆯᄐ"}, {L"ᆵᄋ", L"ᆯᄑ"}, {L"ᆹᄋ", L"ᆸᄊ"},
+
+        // test
+        {L"ᆲ", L"ᆯ"},
+        {L"ᆪ", L"ㄱ"},
+        {L"ᆹ", L"ㅂ"},
+        // {L"ᆰ", L"ᆯ"},
     };
     std::wstring out = replace_pairs_w(inp, pairs);
     gloss(verbose, (out), (inp), rule);
