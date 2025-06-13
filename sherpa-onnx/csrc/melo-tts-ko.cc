@@ -29,20 +29,243 @@ const int NUM_TAILS = 28;
 
 // 한글 여부 확인
 bool is_hangul_syllable(wchar_t ch) { return (ch >= 0xAC00 && ch <= 0xD7A3); }
+// Function to trim leading/trailing whitespace from a string
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\n\r\f\v");
+    if (std::string::npos == first) {
+        return str; // No non-whitespace characters
+    }
+    size_t last = str.find_last_not_of(" \t\n\r\f\v");
+    return str.substr(first, (last - first + 1));
+}
 
-// 유틸 함수: 여러 문자열 치환
-// string replace_pairs(const string &inp,
-//                      const vector<pair<string, string>> &pairs) {
-//   string out = inp;
-//   for (const auto &[from, to] : pairs) {
-//     size_t pos = 0;
-//     while ((pos = out.find(from, pos)) != string::npos) {
-//       out.replace(pos, from.length(), to);
-//       pos += to.length();
-//     }
-//   }
-//   return out;
-// }
+bool containsDigit(const std::wstring& text) {
+    // 문자열의 각 문자를 순회합니다.
+    for (char ch : text) {
+        // 현재 문자가 숫자인지 확인합니다.
+        // isdigit 함수는 해당 문자가 0부터 9까지의 숫자를 나타내면 true를 반환합니다.
+        if (std::isdigit(ch)) {
+            return true; // 숫자를 찾으면 즉시 true를 반환하고 함수를 종료합니다.
+        }
+    }
+    return false; // 문자열 전체를 순회했지만 숫자를 찾지 못했습니다.
+}
+// wstring 버전 process_num 선언
+// std::wstring process_num_w(std::wstring num, bool sino = true);
+std::wstring process_num_w(std::wstring num, bool sino = true) {
+    // 콤마 제거: wstring과 wregex 사용
+    num = std::regex_replace(num, std::wregex(L","), L"");
+
+    if (num == L"0") {
+        return L"영";
+    }
+    if (!sino && num == L"20") {
+        return L"스무";
+    }
+
+    // 초기화 맵: wchar_t와 wstring 사용
+    std::map<wchar_t, std::wstring> digit2name;
+    std::map<wchar_t, std::wstring> digit2mod;
+    std::map<wchar_t, std::wstring> digit2dec;
+
+    // 리터럴에 L 접두사 사용하여 wstring으로 변경
+    std::wstring digits_w = L"123456789";
+    std::wstring names[] = {L"일", L"이", L"삼", L"사", L"오", L"육", L"칠", L"팔", L"구"};
+    std::wstring modifiers[] = {L"한", L"두", L"세", L"네", L"다섯", L"여섯", L"일곱", L"여덟", L"아홉"};
+    std::wstring decimals[] = {L"", L"열", L"스물", L"서른", L"마흔", L"쉰", L"예순", L"일흔", L"여든", L"아흔"};
+
+    for (size_t i = 0; i < digits_w.length(); ++i) {
+        digit2name[digits_w[i]] = names[i];
+        digit2mod[digits_w[i]] = modifiers[i];
+    }
+    for (size_t i = 0; i <= 9; ++i) {
+        // char 대신 wchar_t를 map 키로 사용하려면,
+        // std::to_wstring으로 변환 후 첫 번째 wchar_t를 사용합니다.
+        digit2dec[std::to_wstring(i)[0]] = decimals[i];
+    }
+
+    std::vector<std::wstring> spelledout_reversed; // wstring 벡터로 변경
+
+    for (int i = num.length() - 1; i >= 0; --i) {
+        wchar_t digit = num[i]; // wchar_t로 변경
+        int position = num.length() - 1 - i;
+        std::wstring name = L""; // wstring으로 변경
+
+        if (digit == L'0') { // L'0'으로 변경
+            if (position % 4 == 0) {
+                bool last_three_empty = true;
+                if (!spelledout_reversed.empty()) {
+                    int count_empty = 0;
+                    for (int k = 0; k < std::min((int)spelledout_reversed.size(), 3); ++k) {
+                        if (spelledout_reversed[k].empty()) {
+                            count_empty++;
+                        }
+                    }
+                    if (count_empty == std::min((int)spelledout_reversed.size(), 3)) {
+                         last_three_empty = true;
+                    } else {
+                        last_three_empty = false;
+                    }
+                }
+                if (last_three_empty) {
+                    spelledout_reversed.push_back(L""); // L""으로 변경
+                    continue;
+                }
+            } else {
+                spelledout_reversed.push_back(L""); // L""으로 변경
+                continue;
+            }
+        }
+
+        if (sino) {
+            if (position == 0) {
+                name = digit2name.count(digit) ? digit2name[digit] : L"";
+            } else if (position == 1) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"십";
+                if (name == L"일십") { // L""으로 변경
+                    name = L"십"; // L""으로 변경
+                }
+            } else if (position == 2) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+                if (name == L"일백") { // L""으로 변경
+                    name = L"백"; // L""으로 변경
+                }
+            } else if (position == 3) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+                if (name == L"일천") { // L""으로 변경
+                    name = L"천"; // L""으로 변경
+                }
+            } else if (position == 4) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"만";
+                if (name == L"일만") { // L""으로 변경
+                    name = L"만"; // L""으로 변경
+                }
+            } else if (position == 5) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"십";
+                if (name == L"일십") { // L""으로 변경
+                    name = L"십"; // L""으로 변경
+                }
+            } else if (position == 6) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+                if (name == L"일백") { // L""으로 변경
+                    name = L"백"; // L""으로 변경
+                }
+            } else if (position == 7) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+                if (name == L"일천") { // L""으로 변경
+                    name = L"천"; // L""으로 변경
+                }
+            } else if (position == 8) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"억";
+            } else if (position == 9) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"십";
+            } else if (position == 10) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+            } else if (position == 11) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+            } else if (position == 12) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"조";
+            } else if (position == 13) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"십";
+            } else if (position == 14) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+            } else if (position == 15) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+            }
+        } else { // Pure Korean numerals
+            if (position == 0) {
+                name = digit2mod.count(digit) ? digit2mod[digit] : L"";
+            } else if (position == 1) {
+                name = digit2dec.count(digit) ? digit2dec[digit] : L"";
+            }
+            // Pure Korean (sino=False) for higher magnitudes
+            else if (position == 2) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+                if (name == L"일백") {
+                    name = L"백";
+                }
+            } else if (position == 3) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+                if (name == L"일천") {
+                    name = L"천";
+                }
+            } else if (position == 4) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"만";
+                if (name == L"일만") {
+                    name = L"만";
+                }
+            } else if (position == 5) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"십";
+                if (name == L"일십") {
+                    name = L"십";
+                }
+            } else if (position == 6) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+                if (name == L"일백") {
+                    name = L"백";
+                }
+            } else if (position == 7) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+                if (name == L"일천") {
+                    name = L"천";
+                }
+            } else if (position == 8) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"억";
+            } else if (position == 9) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"십";
+            } else if (position == 10) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+            } else if (position == 11) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+            } else if (position == 12) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"조";
+            } else if (position == 13) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"십";
+            } else if (position == 14) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"백";
+            } else if (position == 15) {
+                name = (digit2name.count(digit) ? digit2name[digit] : L"") + L"천";
+            }
+        }
+        spelledout_reversed.push_back(name);
+    }
+
+    std::reverse(spelledout_reversed.begin(), spelledout_reversed.end());
+
+    std::wstring result = L""; // wstring으로 변경
+    for (const std::wstring& s : spelledout_reversed) { // wstring 참조로 변경
+        result += s;
+    }
+    return result;
+}
+std::wstring convertNumbersInText_w(const std::wstring& text, bool sino = true) {
+    if(!containsDigit(text)){
+        return text;
+    }
+    // wstring용 정규 표현식 (L"" 접두사)
+    std::wregex num_regex(L"\\d[\\d,]*");
+
+    std::wstring result = text;
+
+    auto words_begin = std::wsregex_iterator(text.begin(), text.end(), num_regex);
+    auto words_end = std::wsregex_iterator();
+
+    std::vector<std::pair<std::wstring, std::wsmatch>> matches;
+    for (std::wsregex_iterator i = words_begin; i != words_end; ++i) {
+        matches.push_back({i->str(), *i});
+    }
+    std::reverse(matches.begin(), matches.end());
+
+    for (const auto& match_pair : matches) {
+        std::wstring num_str = match_pair.first;
+        std::wsmatch match_info = match_pair.second;
+
+        std::wstring converted_num = process_num_w(num_str, sino);
+
+        result.replace(match_info.position(), match_info.length(), converted_num);
+    }
+    return result;
+}
 // 분리 함수
 vector<wchar_t> decompose_hangul(wstring input) {
   vector<wchar_t> result;
@@ -623,6 +846,7 @@ std::wstring apply_rules_w(std::wstring inp, bool descriptive = false) {
     out = apply_rule_step_w(L"link3_w", link3_w, out, descriptive);
     out = apply_rule_step_w(L"link4_w", link4_w, out, descriptive);
 
+    out = convertNumbersInText_w(out);
     return out;
 }
 
@@ -948,8 +1172,208 @@ std::vector<int64_t> TextToPhoneId(const std::string &_text, bool isFullSentence
 //     // return ja_bert_vec;
 
 // }
+bool containsDigit(const std::string& text) {
+    // 문자열의 각 문자를 순회합니다.
+    for (char ch : text) {
+        // 현재 문자가 숫자인지 확인합니다.
+        // isdigit 함수는 해당 문자가 0부터 9까지의 숫자를 나타내면 true를 반환합니다.
+        if (std::isdigit(ch)) {
+            return true; // 숫자를 찾으면 즉시 true를 반환하고 함수를 종료합니다.
+        }
+    }
+    return false; // 문자열 전체를 순회했지만 숫자를 찾지 못했습니다.
+}
 
+std::string process_num(std::string num, bool sino = true) {
+    // Remove commas from the number string
+    num = std::regex_replace(num, std::regex(","), "");
 
+    if (num == "0") {
+        return "영";
+    }
+    if (!sino && num == "20") {
+        return "스무";
+    }
+
+    // Initialize maps for digit to Korean name mappings
+    std::map<char, std::string> digit2name;
+    std::map<char, std::string> digit2mod;
+    std::map<char, std::string> digit2dec;
+
+    std::string digits = "123456789";
+    std::string names[] = {"일", "이", "삼", "사", "오", "육", "칠", "팔", "구"};
+    std::string modifiers[] = {"한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉"};
+    std::string decimals[] = {"", "열", "스물", "서른", "마흔", "쉰", "예순", "일흔", "여든", "아흔"}; // Note: decimals[0] is empty for 0
+
+    for (size_t i = 0; i < digits.length(); ++i) {
+        digit2name[digits[i]] = names[i];
+        digit2mod[digits[i]] = modifiers[i];
+    }
+    for (size_t i = 0; i <= 9; ++i) { // decimals map includes '0' to '9'
+        digit2dec[std::to_string(i)[0]] = decimals[i];
+    }
+
+    std::vector<std::string> spelledout_reversed; // Build in reverse, then reverse back
+
+    for (int i = num.length() - 1; i >= 0; --i) {
+        char digit = num[i];
+        int position = num.length() - 1 - i; // Position from the rightmost digit (0-indexed)
+        std::string name = "";
+
+        if (digit == '0') {
+            // Handle zeros based on their position and context, similar to Python
+            if (position % 4 == 0) { // Unit position (ones, thousands, ten thousands, etc.)
+                bool last_three_empty = true;
+                if (!spelledout_reversed.empty()) {
+                    // Check if the last three non-empty elements are all empty (representing zeroes)
+                    int count_empty = 0;
+                    for (int k = 0; k < std::min((int)spelledout_reversed.size(), 3); ++k) {
+                        if (spelledout_reversed[k].empty()) {
+                            count_empty++;
+                        }
+                    }
+                    if (count_empty == std::min((int)spelledout_reversed.size(), 3)) {
+                         last_three_empty = true;
+                    } else {
+                        last_three_empty = false;
+                    }
+                }
+
+                if (last_three_empty) {
+                    spelledout_reversed.push_back("");
+                    continue;
+                }
+            } else {
+                spelledout_reversed.push_back("");
+                continue;
+            }
+        }
+
+        if (sino) {
+            if (position == 0) { // Ones place
+                name = digit2name.count(digit) ? digit2name[digit] : "";
+            } else if (position == 1) { // Tens place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "십";
+                if (name == "일십") {
+                    name = "십";
+                }
+            } else if (position == 2) { // Hundreds place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+                if (name == "일백") {
+                    name = "백";
+                }
+            } else if (position == 3) { // Thousands place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+                if (name == "일천") {
+                    name = "천";
+                }
+            } else if (position == 4) { // Ten thousands place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "만";
+                if (name == "일만") {
+                    name = "만";
+                }
+            } else if (position == 5) { // Hundred thousands place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "십";
+                if (name == "일십") {
+                    name = "십";
+                }
+            } else if (position == 6) { // Millions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+                if (name == "일백") {
+                    name = "백";
+                }
+            } else if (position == 7) { // Ten millions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+                if (name == "일천") {
+                    name = "천";
+                }
+            } else if (position == 8) { // Billions place (억)
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "억";
+            } else if (position == 9) { // Ten billions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "십";
+            } else if (position == 10) { // Hundred billions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+            } else if (position == 11) { // Trillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+            } else if (position == 12) { // Quadrillions place (조)
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "조";
+            } else if (position == 13) { // Ten quadrillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "십";
+            } else if (position == 14) { // Hundred quadrillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+            } else if (position == 15) { // Quintillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+            }
+        } else { // Pure Korean numerals
+            if (position == 0) { // Ones place
+                name = digit2mod.count(digit) ? digit2mod[digit] : "";
+            } else if (position == 1) { // Tens place
+                name = digit2dec.count(digit) ? digit2dec[digit] : "";
+            }
+            // For pure Korean, higher magnitudes usually don't have distinct modifiers
+            // for "백", "천", "만", "억", etc., and often use Sino-Korean for these.
+            // The original Python code only handled position 0 and 1 differently for sino=False.
+            // If you need more complex pure Korean numeral rules for higher magnitudes,
+            // you'll need to expand this part.
+            else if (position == 2) { // Hundreds place (usually Sino-Korean '백')
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+                if (name == "일백") {
+                    name = "백";
+                }
+            } else if (position == 3) { // Thousands place (usually Sino-Korean '천')
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+                if (name == "일천") {
+                    name = "천";
+                }
+            } else if (position == 4) { // Ten thousands place (usually Sino-Korean '만')
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "만";
+                if (name == "일만") {
+                    name = "만";
+                }
+            } else if (position == 5) { // Hundred thousands place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "십";
+                if (name == "일십") {
+                    name = "십";
+                }
+            } else if (position == 6) { // Millions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+                if (name == "일백") {
+                    name = "백";
+                }
+            } else if (position == 7) { // Ten millions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+                if (name == "일천") {
+                    name = "천";
+                }
+            } else if (position == 8) { // Billions place (억)
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "억";
+            } else if (position == 9) { // Ten billions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "십";
+            } else if (position == 10) { // Hundred billions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+            } else if (position == 11) { // Trillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+            } else if (position == 12) { // Quadrillions place (조)
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "조";
+            } else if (position == 13) { // Ten quadrillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "십";
+            } else if (position == 14) { // Hundred quadrillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "백";
+            } else if (position == 15) { // Quintillions place
+                name = (digit2name.count(digit) ? digit2name[digit] : "") + "천";
+            }
+        }
+        spelledout_reversed.push_back(name);
+    }
+
+    std::reverse(spelledout_reversed.begin(), spelledout_reversed.end());
+
+    std::string result = "";
+    for (const std::string& s : spelledout_reversed) {
+        result += s;
+    }
+    return result;
+}
 
 // Structure to hold the return values of g2pk
 
@@ -1156,54 +1580,48 @@ G2PResult g2pk(const std::string& norm_text, WordPieceTokenizer& tokenizer) {
     return G2PResult{ phones_final,ph_ids_final, tones_final, word2ph_final };
 }
 
-// Function to trim leading/trailing whitespace from a string
-std::string trim(const std::string& str) {
-    size_t first = str.find_first_not_of(" \t\n\r\f\v");
-    if (std::string::npos == first) {
-        return str; // No non-whitespace characters
-    }
-    size_t last = str.find_last_not_of(" \t\n\r\f\v");
-    return str.substr(first, (last - first + 1));
-}
 
 // Forward declaration for merge_short_sentences_ko
-std::vector<std::string> merge_short_sentences_ko(std::vector<std::string> sentences, int min_len_merge = 15);
+std::vector<std::string> merge_short_sentences_ko(std::vector<std::string> sentences, int min_len_merge = 30);
 
 
-std::vector<std::string> split_sentences_ko(const std::string& text, int min_len ) {
+/// @param text 
+/// @param min_len  byte length
+/// @return  vector of sentences
+std::vector<std::string> split_sentences_ko(const std::string& text, int min_len) {
     std::string processed_text = text;
 
     // 1. 텍스트 내의 여러 종류의 공백, 탭, 줄바꿈 등을 하나의 공백으로 정규화
-    // Equivalent to: text = re.sub('[\n\t ]+', ' ', text)
     processed_text = std::regex_replace(processed_text, std::regex("[\\n\\t ]+"), " ");
 
     // 2. 한국어 문장 종결 구두점 (온점, 물음표, 느낌표) 뒤에 특수 구분자 "$#!" 삽입
-    //    쉼표(,) 뒤에도 삽입하여 초기 분리 기준으로 사용 (나중에 길이가 짧으면 다시 병합)
-    //    주의: 한국어 특성상 온점 없이 '입니다', '했어요' 등으로 문장이 끝날 수 있지만
-    //    이를 모두 regex로 잡는 것은 오탐이 많으므로, 주요 구두점만 사용.
-    // Equivalent to: re.sub('([.!?])', r'\1 $#!', text)
-    processed_text = std::regex_replace(processed_text, std::regex("([.!?])"), "$1 $#!");
-    // 쉼표도 분리 기준으로 사용 (추후 min_len으로 병합될 수 있음)
-    processed_text = std::regex_replace(processed_text, std::regex("([,])"), "$1 $#!");
+    //    쉼표(,) 뒤에도 삽입하여 초기 분리 기준으로 사용
+    //    주의: 구두점 뒤에 공백을 추가하여, 공백도 분리 기준으로 삼을 수 있게 합니다.
+    processed_text = std::regex_replace(processed_text, std::regex("([.!?])"), "$1 $#!"); // 구두점 뒤에 공백과 구분자 삽입
+    processed_text = std::regex_replace(processed_text, std::regex("([,])"), "$1 $#!");   // 쉼표 뒤에 공백과 구분자 삽입
 
+    // 3. 공백도 특수 구분자 "$#!"로 간주하여 문장 분리.
+    //    여기서 중요한 것은 공백 자체를 버리지 않고 구분자의 일부로 처리하거나,
+    //    분리된 토큰 사이에 공백을 다시 삽입하는 로직이 필요하다는 것입니다.
+    //    가장 간단한 방법은 모든 공백을 포함한 '토큰'을 만드는 것입니다.
+    //    하지만, `std::string::find`로는 공백을 포함한 토큰을 만들 수 없습니다.
+    //    따라서 `std::regex_token_iterator`를 사용하여 공백을 포함한 분리를 수행합니다.
 
-    // 3. 특수 구분자 "$#!"를 기준으로 문장 분리
-    std::vector<std::string> sentences;
-    std::string delimiter = "$#!";
-    size_t pos = 0;
-    std::string token;
-    while ((pos = processed_text.find(delimiter)) != std::string::npos) {
-        token = processed_text.substr(0, pos);
-        std::string trimmed_token = trim(token);
-        if (!trimmed_token.empty()) {
-            sentences.push_back(trimmed_token);
+    std::vector<std::string> sentences_raw;
+    // 공백 ( ) 또는 특수 구분자 ($#!)를 분리 기준으로 사용
+    // 이 정규식은 ' ' 또는 '$#!'를 분리자로 인식합니다.
+    std::regex re(" |\\$#!"); // 공백 또는 $#!
+
+    // std::sregex_token_iterator를 사용하여 분리 (토큰 추출 모드)
+    // -1은 분리자 자체가 아닌, 분리자 사이의 토큰을 가져오라는 의미입니다.
+    std::sregex_token_iterator it(processed_text.begin(), processed_text.end(), re, -1);
+    std::sregex_token_iterator end;
+
+    for (; it != end; ++it) {
+        std::string token = *it;
+        if (!token.empty()) { // 빈 문자열은 스킵 (연속된 분리자 등으로 인해 발생 가능)
+            sentences_raw.push_back(token);
         }
-        processed_text.erase(0, pos + delimiter.length());
-    }
-    // Add the last part of the string after the last delimiter
-    std::string trimmed_last_part = trim(processed_text);
-    if (!trimmed_last_part.empty()) {
-        sentences.push_back(trimmed_last_part);
     }
 
     // 4. 짧은 문장들을 `min_len` 기준에 따라 병합
@@ -1211,25 +1629,28 @@ std::vector<std::string> split_sentences_ko(const std::string& text, int min_len
     std::vector<std::string> new_sent_buffer;
     int count_len = 0;
 
-    for (size_t i = 0; i < sentences.size(); ++i) {
-        new_sent_buffer.push_back(sentences[i]);
-        // Note: string::length() returns bytes for multi-byte encodings (like UTF-8 for Korean).
-        // For accurate character count, a Unicode library (e.g., ICU) is recommended.
-        // For simple length checks, byte length might be sufficient depending on requirements.
-        count_len += sentences[i].length(); 
+    for (size_t i = 0; i < sentences_raw.size(); ++i) {
+        // 버퍼에 현재 토큰을 추가
+        new_sent_buffer.push_back(sentences_raw[i]);
+        count_len += sentences_raw[i].length(); // 바이트 길이
 
-        if (count_len > min_len || i == sentences.size() - 1) {
-            count_len = 0;
+        // 현재 토큰이 마지막 토큰이거나, 버퍼의 길이가 min_len을 초과했을 때
+        if (count_len >= min_len || i == sentences_raw.size() - 1) {
             std::string joined_sentence;
             for (size_t j = 0; j < new_sent_buffer.size(); ++j) {
                 joined_sentence += new_sent_buffer[j];
-                // 조인된 문장 사이에 공백을 추가할지 여부는 시나리오에 따라 다릅니다.
-                // 보통은 이미 공백으로 분리된 토큰이므로 추가하지 않거나,
-                // 필요하다면 공백을 추가할 수 있습니다.
-                // 여기서는 이미 공백 정규화 후 분리되었으므로 명시적으로 추가하지 않음.
+                // 각 토큰 사이에 공백을 추가합니다.
+                // 단, 마지막 토큰 뒤에는 공백을 추가하지 않습니다.
+                // 그리고 구두점 바로 뒤에 공백이 붙는 것을 막으려면 추가 로직이 필요합니다.
+                // (예: 현재 토큰이 구두점일 경우 다음 토큰에 공백을 붙이지 않음)
+                // 여기서는 간단하게 모든 토큰 뒤에 공백을 추가하되, 마지막 토큰은 제외합니다.
+                if (j < new_sent_buffer.size() - 1) {
+                    joined_sentence += " ";
+                }
             }
-            new_sentences.push_back(trim(joined_sentence));
-            new_sent_buffer.clear();
+            new_sentences.push_back(trim(joined_sentence)); // 최종적으로 양 끝 공백 제거
+            new_sent_buffer.clear(); // 버퍼 비우기
+            count_len = 0;           // 길이 초기화
         }
     }
 

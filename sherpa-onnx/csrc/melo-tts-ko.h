@@ -22,6 +22,6 @@ std::vector<std::int64_t> CreateToneKo(size_t desired_size);
 std::vector<std::int64_t> AddZeroesPhone(
     const std::vector<std::int64_t> &original_vec);
 std::vector<std::string> split_sentences_ko(const std::string &text,
-                                            int min_len = 10);
+                                            int min_len = 30);
 
 #endif
